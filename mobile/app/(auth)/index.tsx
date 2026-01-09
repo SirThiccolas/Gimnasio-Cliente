@@ -7,24 +7,18 @@ import {
   Platform,
 } from 'react-native';
 import styled from 'styled-components/native';
-import { ImageBackground } from 'expo-image'; // Usamos ImageBackground de expo-image
+import { ImageBackground } from 'expo-image';
 
-// --- 1. Constantes de Estilo y Color ---
-const GRADIENT_START = '#ff7e5f'; // Naranja (Inicio del degradado del botón FXML)
-const TEXT_DARK = '#2c3e50'; // Texto principal (similar a tu FXML)
-const INPUT_BACKGROUND = '#f8f9fa'; // Gris claro para los inputs
+const GRADIENT_START = '#ff7e5f';
+const TEXT_DARK = '#2c3e50';
+const INPUT_BACKGROUND = '#f8f9fa';
 
-// --- 2. Componentes Estilizados ---
-
-// 1. Contenedor principal con la imagen de fondo
 const StyledImageBackground = styled(ImageBackground)`
   flex: 1;
   justify-content: center;
   align-items: center;
 `;
 
-// 2. Capa de superposición para mejorar la legibilidad del texto
-// Usamos un ligero desenfoque y opacidad baja para mantener el fondo visible
 const Overlay = styled.View`
   background-color: rgba(255, 255, 255, 0.2); /* Blanco muy sutilmente transparente */
   flex: 1;
@@ -34,7 +28,6 @@ const Overlay = styled.View`
   padding: 30px;
 `;
 
-// 3. Contenedor principal del formulario (Simula el VBox interior con sombra)
 const FormWrapper = styled.View`
   width: 100%;
   max-width: 400px;
@@ -113,6 +106,7 @@ const ButtonText = styled.Text`
 
 const ForgotPasswordLink = styled(TouchableOpacity)`
   margin-top: 25px;
+  color: white;
 `;
 
 const LinkText = styled.Text`
@@ -121,8 +115,6 @@ const LinkText = styled.Text`
   text-decoration-line: underline;
   font-weight: 500;
 `;
-
-// --- 3. Componente de Inicio de Sesión ---
 
 export default function LoginScreen() {
   const [dni, setDni] = useState('');
@@ -134,7 +126,6 @@ export default function LoginScreen() {
     setIsLoading(true);
     Keyboard.dismiss();
 
-    // Lógica de Autenticación
     setTimeout(() => {
       setIsLoading(false);
       alert(`Autenticación simulada para DNI: ${dni}`);
@@ -146,7 +137,7 @@ export default function LoginScreen() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <StyledImageBackground
-        source={require('../../assets/images/gym-background.jpg')} // 🚨 CAMBIA ESTA RUTA POR TU IMAGEN
+        source={require('../../assets/images/gym-background.jpg')}
         contentFit="cover"
         transition={1000}
       >
