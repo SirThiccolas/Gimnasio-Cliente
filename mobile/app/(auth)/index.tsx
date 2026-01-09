@@ -5,9 +5,12 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Platform,
+  Alert,
 } from 'react-native';
 import styled from 'styled-components/native';
 import { ImageBackground } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 
 const GRADIENT_START = '#ff7e5f';
 const TEXT_DARK = '#2c3e50';
@@ -20,7 +23,7 @@ const StyledImageBackground = styled(ImageBackground)`
 `;
 
 const Overlay = styled.View`
-  background-color: rgba(255, 255, 255, 0.2); /* Blanco muy sutilmente transparente */
+  background-color: rgba(255, 255, 255, 0.2);
   flex: 1;
   justify-content: center;
   align-items: center;
@@ -31,19 +34,12 @@ const Overlay = styled.View`
 const FormWrapper = styled.View`
   width: 100%;
   max-width: 400px;
-  background-color: rgba(255, 255, 255, 0.95); /* Fondo blanco casi opaco */
-  border-radius: 15px; /* background-radius: 15 */
-  padding: 35px; /* padding: 35 */
-  
-  /* DropShadow del FXML */
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  padding: 35px;
   ${Platform.select({
-    ios: `
-      shadow-color: #000;
-      shadow-offset: 0px 5px;
-      shadow-opacity: 0.15;
-      shadow-radius: 15px;
-    `,
-    android: 'elevation: 10;', 
+    ios: `shadow-color: #000; shadow-offset: 0px 5px; shadow-opacity: 0.15; shadow-radius: 15px;`,
+    android: 'elevation: 10;',
   })}
 `;
 
@@ -87,10 +83,10 @@ const Input = styled.TextInput`
   color: ${TEXT_DARK};
 `;
 
-const Button = styled(TouchableOpacity)`
+const Button = styled(TouchableOpacity)<{ disabled?: boolean }>`
   width: 100%;
   height: 45px;
-  background-color: ${GRADIENT_START}; 
+  background-color: ${GRADIENT_START};
   border-radius: 8px;
   justify-content: center;
   align-items: center;
@@ -106,7 +102,6 @@ const ButtonText = styled.Text`
 
 const ForgotPasswordLink = styled(TouchableOpacity)`
   margin-top: 25px;
-  color: white;
 `;
 
 const LinkText = styled.Text`
@@ -116,25 +111,64 @@ const LinkText = styled.Text`
   font-weight: 500;
 `;
 
-export default function LoginScreen() {
-  const [dni, setDni] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+interface LoginResponse {
+  status: string;
+  message: string;
+  user?: {
+    nombre: string;
+    dni: string;
+  };
+}
 
-  const handleLogin = () => {
-    if (!dni || !password) return alert('Por favor, completa ambos campos.');
+export default function LoginScreen() {
+  const [dni, setDni] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    if (!dni || !password) {
+      Alert.alert('Atención', 'Por favor, completa ambos campos.');
+      return;
+    }
+
     setIsLoading(true);
     Keyboard.dismiss();
 
-    setTimeout(() => {
+    try {
+      const API_URL = "http://127.0.0.1:8000/api/login"; 
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ dni, password }),
+      });
+
+      const data: LoginResponse = await response.json();
+
+      if (response.ok) {
+        Alert.alert('¡Bienvenido!', `Hola ${data.user?.nombre}`);
+        router.replace('/(tabs)'); 
+      } else {
+        Alert.alert('Error', data.message || 'Credenciales incorrectas');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error de conexión', 'No se pudo contactar con el servidor. Verifica tu conexión e IP.');
+    } finally {
       setIsLoading(false);
-      alert(`Autenticación simulada para DNI: ${dni}`);
-    }, 1500);
+    }
   };
 
   const isButtonDisabled = !dni || !password || isLoading;
 
   return (
+  <>
+    <Stack.Screen options={{ headerShown: false }} />
+
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <StyledImageBackground
         source={require('../../assets/images/gym-background.jpg')}
@@ -143,26 +177,22 @@ export default function LoginScreen() {
       >
         <Overlay>
           <FormWrapper>
-            {/* Título */}
             <TitleBox>
               <MainTitle>¡Bienvenido!</MainTitle>
               <Subtitle>Inicia sesión en tu cuenta</Subtitle>
             </TitleBox>
 
-            {/* Campo DNI */}
             <InputGroup>
               <Label>DNI</Label>
               <Input
                 placeholder="Introduce tu DNI"
                 value={dni}
                 onChangeText={setDni}
-                keyboardType="default"
                 autoCapitalize="none"
                 placeholderTextColor="#a0a0a0"
               />
             </InputGroup>
 
-            {/* Campo Contraseña */}
             <InputGroup>
               <Label>Contraseña</Label>
               <Input
@@ -174,11 +204,7 @@ export default function LoginScreen() {
               />
             </InputGroup>
 
-            {/* Botón de acceso */}
-            <Button
-              onPress={handleLogin}
-              disabled={isButtonDisabled}
-            >
+            <Button onPress={handleLogin} disabled={isButtonDisabled}>
               {isLoading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
@@ -187,12 +213,12 @@ export default function LoginScreen() {
             </Button>
           </FormWrapper>
 
-          {/* Enlace de "He olvidado mi contraseña" */}
-          <ForgotPasswordLink onPress={() => alert('Recuperar contraseña')}>
+          <ForgotPasswordLink onPress={() => Alert.alert('Recuperar', 'Función no disponible')}>
             <LinkText>¿Olvidaste tu contraseña?</LinkText>
           </ForgotPasswordLink>
         </Overlay>
       </StyledImageBackground>
     </TouchableWithoutFeedback>
-  );
+  </>
+);
 }
