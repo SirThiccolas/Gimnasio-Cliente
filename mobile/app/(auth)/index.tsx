@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import styled from 'styled-components/native';
 import { ImageBackground } from 'expo-image';
-import { useRouter } from 'expo-router';
-import { Stack } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// --- TUS ESTILOS ORIGINALES ---
 const GRADIENT_START = '#ff7e5f';
 const TEXT_DARK = '#2c3e50';
 const INPUT_BACKGROUND = '#f8f9fa';
@@ -39,7 +40,7 @@ const FormWrapper = styled.View`
   padding: 35px;
   ${Platform.select({
     ios: `shadow-color: #000; shadow-offset: 0px 5px; shadow-opacity: 0.15; shadow-radius: 15px;`,
-    android: 'elevation: 10;',
+    android: 'elevation: 10;', 
   })}
 `;
 
@@ -83,10 +84,10 @@ const Input = styled.TextInput`
   color: ${TEXT_DARK};
 `;
 
-const Button = styled(TouchableOpacity)<{ disabled?: boolean }>`
+const Button = styled(TouchableOpacity)`
   width: 100%;
   height: 45px;
-  background-color: ${GRADIENT_START};
+  background-color: ${GRADIENT_START}; 
   border-radius: 8px;
   justify-content: center;
   align-items: center;
@@ -111,53 +112,37 @@ const LinkText = styled.Text`
   font-weight: 500;
 `;
 
-interface LoginResponse {
-  status: string;
-  message: string;
-  user?: {
-    nombre: string;
-    dni: string;
-  };
-}
-
 export default function LoginScreen() {
-  const [dni, setDni] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [dni, setDni] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (!dni || !password) {
-      Alert.alert('Atención', 'Por favor, completa ambos campos.');
-      return;
-    }
-
+    if (!dni || !password) return Alert.alert('Error', 'Completa ambos campos.');
     setIsLoading(true);
     Keyboard.dismiss();
 
     try {
-      const API_URL = "http://127.0.0.1:8000/api/login"; 
-
-      const response = await fetch(API_URL, {
+      // Recuerda usar tu IP real si pruebas en móvil
+      const response = await fetch("http://127.0.0.1:8000/api/login", {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ dni, password }),
       });
 
-      const data: LoginResponse = await response.json();
+      const data = await response.json();
 
       if (response.ok) {
-        Alert.alert('¡Bienvenido!', `Hola ${data.user?.nombre}`);
-        router.replace('/(tabs)'); 
+        // Guardamos los datos reales que vienen de tu BD
+        await AsyncStorage.setItem('clientId', String(data.user.id_cliente));
+        await AsyncStorage.setItem('clientName', data.user.nombre);
+        router.replace('/(tabs)');
       } else {
         Alert.alert('Error', data.message || 'Credenciales incorrectas');
       }
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error de conexión', 'No se pudo contactar con el servidor. Verifica tu conexión e IP.');
+      Alert.alert('Error', 'No se pudo conectar con el servidor.');
     } finally {
       setIsLoading(false);
     }
@@ -166,59 +151,58 @@ export default function LoginScreen() {
   const isButtonDisabled = !dni || !password || isLoading;
 
   return (
-  <>
-    <Stack.Screen options={{ headerShown: false }} />
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <StyledImageBackground
+          source={require('../../assets/images/gym-background.jpg')}
+          contentFit="cover"
+          transition={1000}
+        >
+          <Overlay>
+            <FormWrapper>
+              <TitleBox>
+                <MainTitle>¡Bienvenido!</MainTitle>
+                <Subtitle>Inicia sesión en tu cuenta</Subtitle>
+              </TitleBox>
 
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <StyledImageBackground
-        source={require('../../assets/images/gym-background.jpg')}
-        contentFit="cover"
-        transition={1000}
-      >
-        <Overlay>
-          <FormWrapper>
-            <TitleBox>
-              <MainTitle>¡Bienvenido!</MainTitle>
-              <Subtitle>Inicia sesión en tu cuenta</Subtitle>
-            </TitleBox>
+              <InputGroup>
+                <Label>DNI</Label>
+                <Input
+                  placeholder="Introduce tu DNI"
+                  value={dni}
+                  onChangeText={setDni}
+                  autoCapitalize="none"
+                  placeholderTextColor="#a0a0a0"
+                />
+              </InputGroup>
 
-            <InputGroup>
-              <Label>DNI</Label>
-              <Input
-                placeholder="Introduce tu DNI"
-                value={dni}
-                onChangeText={setDni}
-                autoCapitalize="none"
-                placeholderTextColor="#a0a0a0"
-              />
-            </InputGroup>
+              <InputGroup>
+                <Label>Contraseña</Label>
+                <Input
+                  placeholder="Introduce tu contraseña"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  placeholderTextColor="#a0a0a0"
+                />
+              </InputGroup>
 
-            <InputGroup>
-              <Label>Contraseña</Label>
-              <Input
-                placeholder="Introduce tu contraseña"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                placeholderTextColor="#a0a0a0"
-              />
-            </InputGroup>
+              <Button onPress={handleLogin} disabled={isButtonDisabled}>
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <ButtonText>Acceder</ButtonText>
+                )}
+              </Button>
+            </FormWrapper>
 
-            <Button onPress={handleLogin} disabled={isButtonDisabled}>
-              {isLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <ButtonText>Acceder</ButtonText>
-              )}
-            </Button>
-          </FormWrapper>
-
-          <ForgotPasswordLink onPress={() => Alert.alert('Recuperar', 'Función no disponible')}>
-            <LinkText>¿Olvidaste tu contraseña?</LinkText>
-          </ForgotPasswordLink>
-        </Overlay>
-      </StyledImageBackground>
-    </TouchableWithoutFeedback>
-  </>
-);
+            <ForgotPasswordLink onPress={() => Alert.alert('Recuperar', 'Función no disponible')}>
+              <LinkText>¿Olvidaste tu contraseña?</LinkText>
+            </ForgotPasswordLink>
+          </Overlay>
+        </StyledImageBackground>
+      </TouchableWithoutFeedback>
+    </>
+  );
 }
