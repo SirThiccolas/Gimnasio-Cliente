@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Cache; // Importante añadir esto arriba
+use Illuminate\Support\Facades\Validator; // Añade esto arriba
+use App\Models\Cliente;
 
 class AuthController extends Controller
 {
@@ -34,34 +37,138 @@ class AuthController extends Controller
             'message' => 'Credenciales incorrectas o usuario inactivo'
         ], 401);
     }
-    public function solicitarCodigo(Request $request) {
-        $email = $request->email;
-        $codigo = rand(100000, 999999);
 
-        // 1. Guardar en la DB (Asegúrate de que esta parte funcione)
-        DB::table('password_resets')->updateOrInsert(
-            ['email' => $email],
-            ['token' => $codigo, 'created_at' => now()]
-        );
 
-        // 2. CONFIGURACIÓN DE RUTAS (IMPORTANTE)
-        $pythonPath = '/usr/bin/python3'; // La ruta que te dio el comando 'which python3'
-        $scriptPath = base_path('scripts/enviar_correo.py');
+    public function updatePassword(Request $request) {
+        $request->validate([
+            'id_cliente' => 'required',
+            'password_actual' => 'required',
+            'password_nueva' => 'required|min:4',
+        ]);
 
-        // 3. EJECUTAR Y CAPTURAR ERRORES
-        // El "2>&1" es mágico: redirige los errores de Python a la variable $output
-        $comando = "$pythonPath $scriptPath $email $codigo 2>&1";
-        $output = shell_exec($comando);
+        $cliente = DB::table('clientes')
+            ->where('id_cliente', $request->id_cliente)
+            ->where('password', $request->password_actual)
+            ->first();
 
-        // 4. REVISAR LOGS
-        // Abre el archivo 'storage/logs/laravel.log' para ver qué dice esto:
-        \Log::info("Ejecutando: " . $comando);
-        \Log::info("Resultado Python: " . $output);
-
-        if (str_contains($output, 'EXITO') || str_contains($output, 'Correctamente')) {
-            return response()->json(['message' => 'Código enviado']);
-        } else {
-            return response()->json(['error' => 'Error al enviar: ' . $output], 500);
+        if (!$cliente) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'La contraseña actual no es correcta.'
+            ], 401);
         }
-}
+
+        DB::table('clientes')
+            ->where('id_cliente', $request->id_cliente)
+            ->update(['password' => $request->password_nueva]);
+
+        DB::table('notificaciones')->insert([
+            'id_cliente' => $request->id_cliente,
+            'descripcion' => 'Se ha cambiado la contraseña de acceso.',
+            'fecha_notificacion' => now()
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Contraseña actualizada correctamente.'
+        ]);
+    }
+
+    public function solicitarCodigo(Request $request) {
+        try {
+            $dni = $request->dni;
+            $emailDestino = $request->email;
+
+            $codigo = rand(100000, 999999);
+
+            \Illuminate\Support\Facades\Cache::put('codigo_reset_' . $dni, $codigo, now()->addMinutes(15));
+
+            $pythonPath = '/usr/bin/python3';
+            $scriptPath = base_path('scripts/enviar_correo.py');
+            
+            $emailEscaped = escapeshellarg($emailDestino);
+            $codigoEscaped = escapeshellarg($codigo);
+
+            $comando = "$pythonPath \"$scriptPath\" $emailEscaped $codigoEscaped 2>&1";
+            $output = shell_exec($comando);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Código enviado correctamente',
+                'debug_python' => $output
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error interno: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    public function verificarCodigo(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'dni' => 'required',
+            'codigo' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Faltan datos obligatorios',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $dni = $request->dni;
+        $codigoIntroducido = $request->codigo;
+        $codigoGuardado = \Illuminate\Support\Facades\Cache::get('codigo_reset_' . $dni);
+
+        if ($codigoGuardado && $codigoGuardado == $codigoIntroducido) {
+            \Illuminate\Support\Facades\Cache::forget('codigo_reset_' . $dni);
+            return response()->json(['status' => 'success', 'message' => 'Código correcto']);
+        }
+
+        return response()->json(['status' => 'error', 'message' => 'Código inválido'], 400);
+    }
+
+    public function resetPassword(Request $request) {
+        try {
+            $dni = $request->dni;
+            $nuevaPassword = $request->password;
+
+            $cliente = \Illuminate\Support\Facades\DB::table('clientes')
+                        ->where('dni', $dni)
+                        ->first();
+
+            if (!$cliente) {
+                return response()->json([
+                    'status' => 'error', 
+                    'message' => 'El DNI no existe en nuestra base de datos.'
+                ], 404);
+            }
+
+            \Illuminate\Support\Facades\DB::table('clientes')
+                ->where('dni', $dni)
+                ->update([
+                    'password' => $nuevaPassword
+                ]);
+
+            \Illuminate\Support\Facades\DB::table('notificaciones')->insert([
+                'id_cliente' => $cliente->id_cliente,
+                'descripcion' => 'Se ha restablecido la contraseña de acceso.',
+                'fecha_notificacion' => now()
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => '¡Contraseña actualizada! Ya puedes loguearte.'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error de base de datos: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

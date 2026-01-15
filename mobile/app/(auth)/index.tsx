@@ -137,6 +137,7 @@ export default function LoginScreen() {
         // Guardamos los datos reales que vienen de tu BD
         await AsyncStorage.setItem('clientId', String(data.user.id_cliente));
         await AsyncStorage.setItem('clientName', data.user.nombre);
+        await AsyncStorage.setItem('clientLastname', data.user.apellido);
         router.replace('/(tabs)');
       } else {
         Alert.alert('Error', data.message || 'Credenciales incorrectas');
@@ -197,7 +198,7 @@ export default function LoginScreen() {
               </Button>
             </FormWrapper>
 
-            <ForgotPasswordLink onPress={() => Alert.alert('Recuperar', 'Función no disponible')}>
+            <ForgotPasswordLink onPress={() => { router.push("/(auth)/olvidar-password"); }}>
               <LinkText>¿Olvidaste tu contraseña?</LinkText>
             </ForgotPasswordLink>
           </Overlay>

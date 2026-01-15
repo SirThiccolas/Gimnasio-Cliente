@@ -1,112 +1,154 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Lock, Mail, Key } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Lock, ShieldCheck, ChevronLeft } from 'lucide-react-native';
 
-export default function ChangePassword() {
-  const [step, setStep] = useState(1); // 1: Email, 2: Código, 3: Nueva Clave
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function ChangePasswordScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [clientId, setClientId] = useState('');
+  
+  // Campos del formulario
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  
+  // Estado del mensaje de feedback
+  const [feedback, setFeedback] = useState({ msg: '', type: '' }); // type: 'error' | 'success'
 
-  const handleSendCode = async () => {
+  useEffect(() => {
+    const getUserId = async () => {
+      const id = await AsyncStorage.getItem('clientId');
+      if (id) setClientId(id);
+    };
+    getUserId();
+  }, []);
+
+  const handleUpdate = async () => {
+    // Validaciones previas en cliente
+    if (!currentPass || !newPass || !confirmPass) {
+      setFeedback({ msg: 'Por favor, rellena todos los campos.', type: 'error' });
+      return;
+    }
+
+    if (newPass !== confirmPass) {
+      setFeedback({ msg: 'La nueva contraseña no coincide.', type: 'error' });
+      return;
+    }
+
     setLoading(true);
-    // Llama a tu API de Laravel
-    setTimeout(() => { // Simulación
-      setLoading(false);
-      setStep(2);
-      Alert.alert("Enviado", "Revisa tu correo electrónico.");
-    }, 1500);
-  };
+    setFeedback({ msg: '', type: '' });
 
-  const handleVerifyCode = () => {
-    if (code.length === 6) setStep(3);
-    else Alert.alert("Error", "El código debe ser de 6 dígitos.");
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_cliente: clientId,
+          password_actual: currentPass,
+          password_nueva: newPass
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setFeedback({ msg: '¡Éxito! Contraseña actualizada.', type: 'success' });
+        // Limpiar campos
+        setCurrentPass('');
+        setNewPass('');
+        setConfirmPass('');
+        // Opcional: volver atrás después de 2 segundos
+        setTimeout(() => router.back(), 2000);
+      } else {
+        setFeedback({ msg: data.message || 'Error al actualizar.', type: 'error' });
+      }
+    } catch (error) {
+      setFeedback({ msg: 'Error de conexión con el servidor.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-        <Text style={{ color: '#ff7e5f' }}>← Volver</Text>
+        <ChevronLeft color="#ff7e5f" size={30} />
       </TouchableOpacity>
 
-      <Lock color="#ff7e5f" size={50} style={{ alignSelf: 'center', marginBottom: 20 }} />
-      <Text style={styles.title}>Seguridad</Text>
-      <Text style={styles.subtitle}>
-        {step === 1 && "Introduce tu email para recibir el código."}
-        {step === 2 && "Introduce el código de 6 dígitos enviado."}
-        {step === 3 && "Escribe tu nueva contraseña maestra."}
-      </Text>
+      <View style={styles.header}>
+        <ShieldCheck color="#ff7e5f" size={60} />
+        <Text style={styles.title}>Cambiar Contraseña</Text>
+        <Text style={styles.subtitle}>Asegura tu cuenta con una nueva clave</Text>
+      </View>
 
-      <View style={styles.card}>
-        {step === 1 && (
-          <>
-            <View style={styles.inputBox}>
-              <Mail color="#95a5a6" size={20} />
-              <TextInput 
-                placeholder="Tu email" 
-                style={styles.input} 
-                value={email} 
-                onChangeText={setEmail}
-              />
-            </View>
-            <TouchableOpacity style={styles.btn} onPress={handleSendCode}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Enviar Código</Text>}
-            </TouchableOpacity>
-          </>
+      <View style={styles.form}>
+        <Text style={styles.label}>Contraseña Actual</Text>
+        <TextInput 
+          style={styles.input} 
+          secureTextEntry 
+          value={currentPass} 
+          onChangeText={setCurrentPass}
+          placeholder="Escribe tu clave actual"
+        />
+
+        <Text style={styles.label}>Nueva Contraseña</Text>
+        <TextInput 
+          style={styles.input} 
+          secureTextEntry 
+          value={newPass} 
+          onChangeText={setNewPass}
+          placeholder="Mínimo 4 caracteres"
+        />
+
+        <Text style={styles.label}>Confirmar Nueva Contraseña</Text>
+        <TextInput 
+          style={styles.input} 
+          secureTextEntry 
+          value={confirmPass} 
+          onChangeText={setConfirmPass}
+          placeholder="Repite la nueva clave"
+        />
+
+        {/* MENSAJE DE FEEDBACK (Sustituye a la Alerta) */}
+        {feedback.msg !== '' && (
+          <View style={[styles.msgBox, feedback.type === 'error' ? styles.errorBox : styles.successBox]}>
+            <Text style={[styles.msgText, feedback.type === 'error' ? styles.errorText : styles.successText]}>
+              {feedback.msg}
+            </Text>
+          </View>
         )}
 
-        {step === 2 && (
-          <>
-            <View style={styles.inputBox}>
-              <Key color="#95a5a6" size={20} />
-              <TextInput 
-                placeholder="Código (6 dígitos)" 
-                style={styles.input} 
-                keyboardType="numeric"
-                maxLength={6}
-                value={code}
-                onChangeText={setCode}
-              />
-            </View>
-            <TouchableOpacity style={styles.btn} onPress={handleVerifyCode}>
-              <Text style={styles.btnText}>Verificar Código</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {step === 3 && (
-          <>
-            <View style={styles.inputBox}>
-              <Lock color="#95a5a6" size={20} />
-              <TextInput 
-                placeholder="Nueva Contraseña" 
-                secureTextEntry 
-                style={styles.input} 
-                value={newPassword}
-                onChangeText={setNewPassword}
-              />
-            </View>
-            <TouchableOpacity style={[styles.btn, { backgroundColor: '#2ecc71' }]} onPress={() => router.replace('/(tabs)')}>
-              <Text style={styles.btnText}>Actualizar Contraseña</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        <TouchableOpacity 
+          style={[styles.btn, loading && { opacity: 0.7 }]} 
+          onPress={handleUpdate}
+          disabled={loading}
+        >
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Actualizar Ahora</Text>}
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa', padding: 30, justifyContent: 'center' },
-  backBtn: { position: 'absolute', top: 50, left: 25 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#2c3e50', textAlign: 'center' },
-  subtitle: { color: '#7f8c8d', textAlign: 'center', marginBottom: 30, marginTop: 10 },
-  card: { backgroundColor: '#fff', padding: 25, borderRadius: 20, elevation: 4 },
-  inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f2f6', borderRadius: 12, paddingHorizontal: 15, marginBottom: 20 },
-  input: { flex: 1, paddingVertical: 15, marginLeft: 10, fontSize: 16 },
-  btn: { backgroundColor: '#ff7e5f', padding: 18, borderRadius: 12, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
+  container: { flex: 1, backgroundColor: '#f8f9fa', padding: 25 },
+  backBtn: { marginTop: 40, marginBottom: 20 },
+  header: { alignItems: 'center', marginBottom: 30 },
+  title: { fontSize: 26, fontWeight: 'bold', color: '#2c3e50', marginTop: 10 },
+  subtitle: { color: '#7f8c8d', fontSize: 14, textAlign: 'center' },
+  form: { backgroundColor: '#fff', padding: 20, borderRadius: 20, elevation: 4 },
+  label: { color: '#34495e', fontWeight: '600', marginBottom: 8, fontSize: 14 },
+  input: { backgroundColor: '#f1f2f6', padding: 15, borderRadius: 12, marginBottom: 15, fontSize: 16 },
+  btn: { backgroundColor: '#ff7e5f', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10 },
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  
+  // Estilos de los mensajes en pantalla
+  msgBox: { padding: 12, borderRadius: 10, marginBottom: 15, alignItems: 'center' },
+  errorBox: { backgroundColor: '#ffebee' },
+  successBox: { backgroundColor: '#e8f5e9' },
+  msgText: { fontSize: 14, fontWeight: '500' },
+  errorText: { color: '#c62828' },
+  successText: { color: '#2e7d32' }
 });
