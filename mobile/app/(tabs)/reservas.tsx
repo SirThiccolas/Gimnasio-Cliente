@@ -1,171 +1,196 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, Dimensions } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { 
+  View, Text, StyleSheet, FlatList, ActivityIndicator, 
+  TouchableOpacity 
+} from 'react-native';
+import { Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Calendar, Clock, Info } from 'lucide-react-native';
+import { Clock, QrCode } from 'lucide-react-native';
 
-// Importamos los mismos componentes del Home
 import CustomHeader from '../../components/CustomHeader';
 import SideMenu from '../../components/SideMenu';
+import QrAcceso from '../../components/QrAcceso';
+import ToastAcceso from '../../components/ToastAcceso';
+
+interface Reserva {
+  id_clase: number;
+  nombre_actividad: string;
+  hora_inicio: string;
+  status: 'confirmado' | 'cancelado' | 'usado';
+  fecha_clase: string;
+}
 
 export default function ReservasScreen() {
-  const router = useRouter();
-  
-  // Estados para el Header y el Menú
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [notifs, setNotifs] = useState([]);
   const [clientData, setClientData] = useState({ nombre: '', id: '', apellido: '' });
-  
-  // Estados de los datos de reservas
-  const [reservas, setReservas] = useState([]);
+  const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState<'todas' | 'hoy' | 'usadas'>('todas');
+  
+  const [selectedQr, setSelectedQr] = useState<any>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+
+  const hoyStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     loadInitialData();
   }, []);
 
+  // --- LÓGICA DE POLLING Y POPUP ---
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+
+    if (selectedQr) {
+      interval = setInterval(async () => {
+        try {
+          // IMPORTANTE: Cambia 127.0.0.1 por tu IP local (ej. 192.168.1.XX) si usas móvil real
+          const response = await fetch(
+            `http://127.0.0.1:8000/api/status-inscripcion/${clientData.id}/${selectedQr.id_clase}`
+          );
+          const data = await response.json();
+
+          if (data.status === 'usado') {
+            console.log("¡Acceso confirmado en el servidor!");
+            clearInterval(interval);
+            
+            // 1. Mostrar el Toast inmediatamente
+            setToastMsg(`¡Bienvenido a ${selectedQr.actividad}!`);
+            setShowToast(true);
+
+            // 2. Delay para que el usuario vea el Toast sobre el QR antes de cerrar
+            setTimeout(() => {
+              setSelectedQr(null); 
+              fetchReservas(clientData.id); // Refrescar lista para marcar como usado
+            }, 1500);
+          }
+        } catch (e) {
+          console.log("Esperando validación...");
+        }
+      }, 2000);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [selectedQr]);
+
   const loadInitialData = async () => {
     try {
-      // 1. Obtener datos del storage
       const id = await AsyncStorage.getItem('clientId');
       const nombre = await AsyncStorage.getItem('clientName');
       const apellido = await AsyncStorage.getItem('clientLastname');
-      
-      const userData = { 
-        nombre: nombre || 'Usuario', 
-        id: id || '', 
-        apellido: apellido || '' 
-      };
-      setClientData(userData);
-
-      if (id) {
-        // 2. Cargar Reservas y Notificaciones en paralelo
-        await Promise.all([
-          fetchReservas(id),
-          fetchNotifs(id)
-        ]);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+      setClientData({ nombre: nombre || '', id: id || '', apellido: apellido || '' });
+      if (id) await fetchReservas(id);
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   const fetchReservas = async (id: string) => {
     try {
-      // IMPORTANTE: Cambia 127.0.0.1 por tu IP real si pruebas en móvil físico
       const response = await fetch(`http://127.0.0.1:8000/api/reservas/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setReservas(data);
-      }
-    } catch (error) {
-      console.error("Error reservas:", error);
-    }
+      if (response.ok) setReservas(await response.json());
+    } catch (error) { console.error(error); }
   };
 
-  const fetchNotifs = async (id: string) => {
-    try {
-      const res = await fetch(`http://127.0.0.1:8000/api/notificaciones/unread/${id}`);
-      if (res.ok) setNotifs(await res.json());
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const reservasFiltradas = reservas.filter((r) => {
+    if (filtro === 'hoy') return r.fecha_clase === hoyStr && r.status !== 'usado';
+    if (filtro === 'usadas') return r.status === 'usado';
+    return true;
+  });
 
-  const renderItem = ({ item }: any) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.actividadName}>{item.nombre_actividad}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: item.status === 'confirmada' ? '#2ed573' : '#ffa502' }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
+  const renderItem = ({ item }: { item: Reserva }) => {
+    const esHoy = item.fecha_clase === hoyStr;
+    const esUsado = item.status === 'usado';
+    return (
+      <View style={[styles.card, esUsado && styles.cardUsado]}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.actividadName}>{item.nombre_actividad}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: esUsado ? '#3498db' : '#2ecc71' }]}>
+            <Text style={styles.statusText}>{item.status}</Text>
+          </View>
         </View>
+        <View style={styles.infoRow}>
+          <Clock size={16} color="#ff7e5f" />
+          <Text style={styles.infoText}>{item.hora_inicio.substring(0, 5)} hs - {item.fecha_clase}</Text>
+        </View>
+        {esHoy && !esUsado && (
+          <TouchableOpacity 
+            style={styles.qrButton} 
+            onPress={() => setSelectedQr({
+              id_clase: item.id_clase,
+              id_cliente: clientData.id,
+              actividad: item.nombre_actividad,
+              hora: item.hora_inicio
+            })}
+          >
+            <QrCode color="#fff" size={18} />
+            <Text style={styles.qrButtonText}>MOSTRAR QR</Text>
+          </TouchableOpacity>
+        )}
       </View>
-
-      <View style={styles.infoRow}>
-        <Calendar size={18} color="#ff7e5f" />
-        <Text style={styles.infoText}>Fecha: {item.fecha_clase}</Text>
-      </View>
-
-      <View style={styles.infoRow}>
-        <Clock size={18} color="#ff7e5f" />
-        <Text style={styles.infoText}>Hora: {item.hora_inicio?.substring(0, 5)} hs</Text>
-      </View>
-
-      <View style={styles.footer}>
-        <Info size={14} color="#7f8c8d" />
-        <Text style={styles.footerText}>Reservado el: {item.dia_reserva}</Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* HEADER IDÉNTICO AL HOME */}
-      <CustomHeader 
-        title="MIS RESERVAS" 
-        onOpenMenu={() => setIsMenuOpen(true)}
-        clientId={clientData.id}
-        unreadCount={notifs.length}
-        notificaciones={notifs}
-        onRefreshNotifs={() => fetchNotifs(clientData.id)}
-      />
+      <CustomHeader title="MIS RESERVAS" onOpenMenu={() => setIsMenuOpen(true)} clientId={clientData.id} />
+      
+      <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} clientData={clientData as any} />
 
-      {/* MENÚ LATERAL */}
-      <SideMenu 
-        isOpen={isMenuOpen} 
-        onClose={() => setIsMenuOpen(false)} 
-        clientData={clientData} 
-      />
+      <View style={styles.tabContainer}>
+        {(['todas', 'hoy', 'usadas'] as const).map((f) => (
+          <TouchableOpacity key={f} onPress={() => setFiltro(f)} style={[styles.tabButton, filtro === f && styles.tabActive]}>
+            <Text style={[styles.tabText, filtro === f && styles.tabTextActive]}>{f.toUpperCase()}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#ff7e5f" />
-        </View>
+        <ActivityIndicator size="large" color="#ff7e5f" style={{marginTop: 50}} />
       ) : (
         <FlatList
-          data={reservas}
+          data={reservasFiltradas}
           keyExtractor={(_, index) => index.toString()}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No tienes reservas registradas.</Text>
-          }
+          contentContainerStyle={{ padding: 20 }}
+          ListEmptyComponent={<Text style={styles.emptyText}>No hay reservas para mostrar.</Text>}
         />
       )}
+
+      {/* --- EL ORDEN AQUÍ ABAJO ES LO QUE ARREGLA EL POPUP --- */}
+      
+      {/* 1. El QR se dibuja primero (Capa inferior de los overlays) */}
+      <QrAcceso 
+        visible={!!selectedQr} 
+        onClose={() => setSelectedQr(null)} 
+        data={selectedQr} 
+      />
+
+      {/* 2. El Toast se dibuja después (Capa superior, saldrá por encima del QR) */}
+      <ToastAcceso 
+        visible={showToast} 
+        message={toastMsg} 
+        onClose={() => setShowToast(false)} 
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1e272e' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { padding: 25 },
-  card: { 
-    backgroundColor: '#2f3640', 
-    borderRadius: 20, 
-    padding: 20, 
-    marginBottom: 15,
-    borderLeftWidth: 6,
-    borderLeftColor: '#ff7e5f'
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  tabContainer: { flexDirection: 'row', backgroundColor: '#2f3640', margin: 15, borderRadius: 12, padding: 4 },
+  tabButton: { flex: 1, paddingVertical: 10, alignItems: 'center' },
+  tabActive: { backgroundColor: '#3d4652', borderRadius: 10 },
+  tabText: { color: '#7f8c8d', fontSize: 11, fontWeight: 'bold' },
+  tabTextActive: { color: '#ff7e5f' },
+  card: { backgroundColor: '#2f3640', borderRadius: 20, padding: 20, marginBottom: 15, borderLeftWidth: 5, borderLeftColor: '#ff7e5f' },
+  cardUsado: { opacity: 0.5, borderLeftColor: '#3498db' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   actividadName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusText: { color: '#fff', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  infoText: { color: '#bdc3c7', marginLeft: 10, fontSize: 15 },
-  footer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginTop: 10, 
-    borderTopWidth: 0.5, 
-    borderTopColor: '#3d4652', 
-    paddingTop: 10 
-  },
-  footerText: { color: '#7f8c8d', fontSize: 12, marginLeft: 5 },
-  emptyText: { color: '#7f8c8d', textAlign: 'center', marginTop: 50, fontSize: 16 }
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  infoText: { color: '#bdc3c7', marginLeft: 8 },
+  qrButton: { backgroundColor: '#ff7e5f', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, borderRadius: 10 },
+  qrButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
+  emptyText: { color: '#7f8c8d', textAlign: 'center', marginTop: 40 }
 });

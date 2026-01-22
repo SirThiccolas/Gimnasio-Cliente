@@ -42,8 +42,9 @@ Route::get('/actividades', function() {
 // Horario
 Route::get('/horario-completo', [ClaseController::class, 'obtenerHorario']);
 
-// Inscripciones
-Route::post('/validar-acceso', [InscripcionController::class, 'validarAcceso']);
+
+Route::post('/validar-acceso', [ReservasController::class, 'validarAcceso']);
 
 // Reservas
 Route::get('/reservas/{id_cliente}', [ReservasController::class, 'getReservas']);
+Route::get('/status-inscripcion/{id_cliente}/{id_clase}', [ReservasController::class, 'checkStatus']);

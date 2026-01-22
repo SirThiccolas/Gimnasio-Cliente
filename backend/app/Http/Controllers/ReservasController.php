@@ -11,70 +11,72 @@ class ReservasController extends Controller
     /**
      * Display a listing of the resource.
      */
-  public function getReservas($id_cliente) 
-{
-    $reservas = DB::table('inscripciones')
-        ->join('clases', 'inscripciones.id_clase', '=', 'clases.id_clase')
-        ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad') // Unimos con actividades
-        ->where('inscripciones.id_cliente', $id_cliente)
-        ->select(
-            'actividades.nombre as nombre_actividad',
-            'clases.hora_inicio',
-            'inscripciones.status',
-            'inscripciones.fecha_clase',
-            'inscripciones.dia_reserva',
-        )
-        ->orderBy('inscripciones.fecha_clase', 'desc')
-        ->get();
-
-    return response()->json($reservas);
-}
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function getReservas($id_cliente) 
     {
-        //
+        $reservas = DB::table('inscripciones')
+            ->join('clases', 'inscripciones.id_clase', '=', 'clases.id_clase')
+            ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
+            ->where('inscripciones.id_cliente', $id_cliente)
+            ->select(
+                'clases.id_clase', // <--- IMPORTANTE PARA EL QR
+                'actividades.nombre as nombre_actividad',
+                'clases.hora_inicio',
+                'inscripciones.status',
+                'inscripciones.fecha_clase',
+                'inscripciones.dia_reserva'
+            )
+            ->orderBy('inscripciones.fecha_clase', 'desc')
+            ->get();
+
+        return response()->json($reservas);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function validarAcceso(Request $request)
     {
-        //
+        $id_clase = $request->id_clase;
+        $id_cliente = $request->id_cliente;
+        $hoy = date('Y-m-d'); 
+
+        // Buscamos la inscripción basándonos en el día que se imparte la clase
+        $inscripcion = DB::table('inscripciones')
+            ->where('id_clase', $id_clase)
+            ->where('id_cliente', $id_cliente)
+            ->where('fecha_clase', $hoy) // <--- Ahora comprobamos el día de la clase
+            ->first();
+
+        if (!$inscripcion) {
+            return response()->json([
+                'status' => 'error', 
+                'message' => "No tienes reserva para la clase #$id_clase programada para hoy ($hoy)."
+            ], 404);
+        }
+
+        if ($inscripcion->status === 'usado') {
+            return response()->json([
+                'status' => 'error', 
+                'message' => "Este acceso ya ha sido utilizado."
+            ], 400);
+        }
+
+        // Actualizamos el estado
+        DB::table('inscripciones')
+            ->where('id_clase', $id_clase)
+            ->where('id_cliente', $id_cliente)
+            ->where('fecha_clase', $hoy)
+            ->update(['status' => 'usado']);
+
+        return response()->json(['status' => 'success']);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Reservas $reservas)
+    public function checkStatus($id_cliente, $id_clase)
     {
-        //
-    }
+        $hoy = date('Y-m-d');
+        $status = DB::table('inscripciones')
+            ->where('id_cliente', $id_cliente)
+            ->where('id_clase', $id_clase)
+            ->where('fecha_clase', $hoy) // Comprobamos la clase de hoy
+            ->value('status');
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Reservas $reservas)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Reservas $reservas)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Reservas $reservas)
-    {
-        //
+        return response()->json(['status' => $status]);
     }
 }

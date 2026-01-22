@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Receptor de Gimnasio - TERA 9000</title>
+    <style>
+        body { background: #1e272e; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: #2f3640; padding: 40px; borderRadius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; width: 400px; }
+        h1 { color: #ff7e5f; margin-bottom: 10px; }
+        #status { font-size: 24px; font-weight: bold; margin-top: 20px; min-height: 30px; }
+        .input-box { margin-top: 20px; }
+        input { background: #1e272e; border: 2px solid #3d4652; color: #ff7e5f; padding: 10px; border-radius: 8px; width: 100%; text-align: center; font-size: 16px; }
+        input:focus { border-color: #ff7e5f; outline: none; }
+        .hint { color: #7f8c8d; font-size: 12px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>SISTEMA DE ACCESO</h1>
+        <p>Tera 9000 conectado</p>
+        
+        <div class="input-box">
+            <input type="text" id="scannerInput" placeholder="Haz clic aquí antes de escanear" autofocus>
+        </div>
+
+        <div id="status">Esperando escaneo...</div>
+        <p class="hint">Asegúrate de que el cursor esté parpadeando en el cuadro naranja.</p>
+    </div>
+
+    <script>
+        const input = document.getElementById('scannerInput');
+        const statusDiv = document.getElementById('status');
+
+        // Escuchar cuando el escáner termina de "escribir" (cuando envía Enter)
+        input.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const rawData = input.value.trim();
+                input.value = ''; // Limpiar inmediatamente para el siguiente
+                
+                try {
+                    // 1. Intentar convertir el texto del QR a un objeto
+                    const data = JSON.parse(rawData);
+                    statusDiv.innerText = "⏳ Validando...";
+                    statusDiv.style.color = "#f1c40f";
+
+                    // 2. Enviar a tu Laravel
+                    // NOTA: Asegúrate de que esta URL sea accesible desde este PC
+                    const response = await fetch('http://localhost:8000/api/validar-acceso', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        statusDiv.style.color = '#2ecc71';
+                        statusDiv.innerText = "✅ ACCESO CONCEDIDO";
+                        // Limpiar mensaje después de 3 segundos
+                        setTimeout(() => { statusDiv.innerText = "Esperando escaneo..."; statusDiv.style.color = "white"; }, 3000);
+                    } else {
+                        statusDiv.style.color = '#e74c3c';
+                        statusDiv.innerText = "❌ " + result.message;
+                    }
+                } catch (err) {
+                    console.error(err);
+                    statusDiv.style.color = '#e74c3c';
+                    statusDiv.innerText = "❌ QR INVÁLIDO O ERROR DE RED";
+                }
+            }
+        });
+
+        // Autofocus: Si haces clic en cualquier parte, vuelve al input
+        document.addEventListener('click', () => input.focus());
+    </script>
+</body>
+</html>

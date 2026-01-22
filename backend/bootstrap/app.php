@@ -16,6 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
         ]);
     })
+    // En Laravel 11 (bootstrap/app.php)
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->validateCsrfTokens(except: [
+            'api/validar-acceso',
+        ]);
+    })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
