@@ -7,6 +7,7 @@ use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ClaseController;
 use App\Http\Controllers\InscripcionController;
+use App\Http\Controllers\ReservasController;
 
 Route::get('/ping', function (Request $request) {
     return response()->json([
@@ -43,3 +44,6 @@ Route::get('/horario-completo', [ClaseController::class, 'obtenerHorario']);
 
 // Inscripciones
 Route::post('/validar-acceso', [InscripcionController::class, 'validarAcceso']);
+
+// Reservas
+Route::get('/reservas/{id_cliente}', [ReservasController::class, 'getReservas']);
