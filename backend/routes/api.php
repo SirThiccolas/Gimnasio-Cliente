@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ClaseController;
+use App\Http\Controllers\ReservasController;
 
 Route::get('/ping', function (Request $request) {
     return response()->json([
@@ -38,3 +39,6 @@ Route::get('/actividades', function() {
 
 // Horario
 Route::get('/horario-completo', [ClaseController::class, 'obtenerHorario']);
+
+// Reservas
+Route::get('/reservas/{id_cliente}', [ReservasController::class, 'getReservas']);

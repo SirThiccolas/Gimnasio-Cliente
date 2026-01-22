@@ -124,7 +124,7 @@ export default function HomeScreen() {
               </View>
               <TouchableOpacity 
                 style={styles.mainBtn} 
-                onPress={() => router.push("/(tabs)/clases")}
+                onPress={() => router.push("/(tabs)/actividades")}
               >
                 <Text style={styles.mainBtnText}>Reservar</Text>
               </TouchableOpacity>
