@@ -2,12 +2,22 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Actividad extends Model
 {
+    use HasFactory;
+
     protected $table = 'actividades';
-    protected $primaryKey = 'id_actividad'; // Tu clave primaria
-    protected $fillable = ['nombre', 'descripcion', 'capacidad', 'duracion'];
-    public $timestamps = false; // Si no tienes created_at y updated_at
+    protected $primaryKey = 'id_actividad';
+    public $timestamps = false;
+
+    protected $fillable = [
+        'nombre',
+        'descripcion',
+        'aforo',
+        'duracion',
+        'activo'
+    ];
 }
