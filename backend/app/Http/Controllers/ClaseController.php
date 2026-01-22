@@ -11,7 +11,6 @@ class ClaseController extends Controller
     public function getMisClases($id_cliente)
     {
         try {
-            // 1. Obtenemos el nombre del día actual en español y minúsculas (ej: 'viernes')
             $diasSemanas = [
                 'Sunday' => 'domingo', 'Monday' => 'lunes', 'Tuesday' => 'martes', 
                 'Wednesday' => 'miércoles', 'Thursday' => 'jueves', 
@@ -19,15 +18,15 @@ class ClaseController extends Controller
             ];
             $diaHoy = $diasSemanas[Carbon::now()->format('l')];
 
-            // 2. Usamos la tabla 'inscripciones' que es la que tienes en tu DB
             $misClases = DB::table('inscripciones')
                 ->join('clases', 'inscripciones.id_clase', '=', 'clases.id_clase')
                 ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
                 ->where('inscripciones.id_cliente', $id_cliente)
-                ->where('clases.dia', '=', $diaHoy) // Filtramos por el día de la semana
+                ->where('clases.dia', '=', $diaHoy)
+                ->where('clases.status', '=', 'confirmado')
                 ->select(
                     'clases.id_clase',
-                    'clases.hora_inicio as hora', // Renombramos para el frontend
+                    'clases.hora_inicio as hora',
                     'actividades.nombre as nombre_actividad'
                 )
                 ->get();
@@ -51,6 +50,7 @@ class ClaseController extends Controller
             $horario = DB::table('clases')
                 ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
                 ->where('clases.dia', '=', $diaHoy)
+                ->where('clases.status', '=', 'confirmado')
                 ->select(
                     'clases.id_clase',
                     'clases.hora_inicio as hora',

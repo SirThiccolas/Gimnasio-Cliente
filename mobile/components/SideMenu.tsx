@@ -49,7 +49,7 @@ export default function SideMenu({ isOpen, onClose, clientData }: any) {
             </TouchableOpacity>
 
             {/* Cambio de Clases por Actividades */}
-            <TouchableOpacity style={styles.item} onPress={() => navigate("/(tabs)/clases")}>
+            <TouchableOpacity style={styles.item} onPress={() => navigate("/(tabs)/actividades")}>
               <View style={styles.itemLeft}><Activity color="#fff" size={20} /><Text style={styles.itemText}>Actividades</Text></View>
               <ChevronRight color="#4b5563" size={16} />
             </TouchableOpacity>
