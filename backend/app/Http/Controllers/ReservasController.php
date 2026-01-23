@@ -18,7 +18,7 @@ class ReservasController extends Controller
             ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
             ->where('inscripciones.id_cliente', $id_cliente)
             ->select(
-                'clases.id_clase', // <--- IMPORTANTE PARA EL QR
+                'clases.id_clase',
                 'actividades.nombre as nombre_actividad',
                 'clases.hora_inicio',
                 'inscripciones.status',
@@ -26,6 +26,7 @@ class ReservasController extends Controller
                 'inscripciones.dia_reserva'
             )
             ->orderBy('inscripciones.fecha_clase', 'desc')
+            ->orderBy('inscripciones.status', 'asc')
             ->get();
 
         return response()->json($reservas);
