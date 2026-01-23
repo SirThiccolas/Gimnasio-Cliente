@@ -232,7 +232,7 @@ export default function ActividadesScreen() {
                     </View>
                   </View>
                   <View style={styles.horarioFooter}>
-                    <Text style={styles.profeText}>Prof: {h.nombre_instructor}</Text>
+                    <Text style={styles.profeText}>Monitor: {h.nombre_instructor}</Text>
                     {yaInscrito ? (
                         <View style={styles.badge}><Check color="#2ecc71" size={12} /><Text style={styles.successLabel}> INSCRITO</Text></View>
                     ) : estaLleno ? (
@@ -302,25 +302,41 @@ const styles = StyleSheet.create({
   successLabel: { color: '#2ecc71', fontWeight: 'bold', fontSize: 11 },
   fullLabel: { color: '#f1c40f', fontWeight: 'bold', fontSize: 11 },
   emptyText: { color: '#7f8c8d', textAlign: 'center', marginTop: 20 },
+  loadingContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#7f8c8d',
+    marginTop: 15,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statusBadgeSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6
+  },
+  statusBadgeFull: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6
+  },
   center: { 
     flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center', 
     backgroundColor: '#1e272e' 
   },
-  loadingText: {
-    color: '#7f8c8d',
-    fontSize: 14,
-    fontWeight: '500',
-  },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 50,
-  },
-  emptyText: { 
-    color: '#7f8c8d', 
-    textAlign: 'center', 
-    fontSize: 16,
-    marginTop: 10
   }
 });
