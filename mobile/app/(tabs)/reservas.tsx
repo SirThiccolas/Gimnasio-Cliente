@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     padding: 20, 
     marginBottom: 15, 
     borderLeftWidth: 5, 
-    borderLeftColor: '#2ecc71' // Verde por defecto (confirmado)
+    borderLeftColor: '#2ecc71'
   },
   cardUsado: { 
     opacity: 0.6, 
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   cardCancelado: { 
     opacity: 0.8, 
     borderLeftColor: '#e74c3c',
-    backgroundColor: '#353b48' // Un gris más apagado para canceladas
+    backgroundColor: '#353b48'
   },
 
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },

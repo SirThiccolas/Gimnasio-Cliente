@@ -65,30 +65,35 @@ class ClaseController extends Controller
         }
     }
 
-    public function obtenerHorario(Request $request) {
-        $dia = $request->query('dia'); 
+ public function obtenerHorario(Request $request) {
+    $dia = $request->query('dia'); 
+    $clientId = $request->query('client_id'); // Recibimos el ID desde React Native
 
-        $query = DB::table('clases')
-            ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
-            ->join('instructores', 'clases.id_instructor', '=', 'instructores.id_instructor')
-            ->select(
-                'clases.id_clase',
-                'clases.dia',
-                'clases.hora_inicio',
-                'clases.status',
-                'actividades.nombre as nombre_actividad',
-                'actividades.descripcion',
-                'actividades.aforo',
-                'instructores.nombre as nombre_instructor'
-            )
-            ->where('clases.status', 'confirmado') // Solo mostrar las que no están canceladas
-            ->orderBy('clases.hora_inicio', 'asc');
+    $query = DB::table('clases')
+        ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
+        ->join('instructores', 'clases.id_instructor', '=', 'instructores.id_instructor')
+        ->select(
+            'clases.id_clase',
+            'clases.dia',
+            'clases.hora_inicio',
+            'clases.status',
+            'actividades.nombre as nombre_actividad',
+            'actividades.descripcion',
+            'actividades.aforo',
+            'instructores.nombre as nombre_instructor',
+            // --- NUEVA LÓGICA DE CUPOS ---
+            // Cuenta cuántas inscripciones confirmadas hay para esta clase
+            DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND status != 'cancelado') as inscritos_count"),
+            // Devuelve 1 si el cliente ya está inscrito, 0 si no
+            DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND id_cliente = " . intval($clientId) . " AND status != 'cancelado') as ya_reservado")
+        )
+        ->where('clases.status', 'confirmado')
+        ->orderBy('clases.hora_inicio', 'asc');
 
-        if ($dia && $dia !== 'Todos') {
-            // Usamos lowercase para evitar problemas de "Lunes" vs "lunes"
-            $query->whereRaw('LOWER(clases.dia) = ?', [strtolower($dia)]);
-        }
-
-        return response()->json($query->get());
+    if ($dia && strtolower($dia) !== 'todos') {
+        $query->whereRaw('LOWER(clases.dia) = ?', [strtolower($dia)]);
     }
+
+    return response()->json($query->get());
+}
 }

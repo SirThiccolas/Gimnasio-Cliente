@@ -80,4 +80,61 @@ class ReservasController extends Controller
 
         return response()->json(['status' => $status]);
     }
+
+public function store(Request $request)
+{
+    try {
+        $id_cliente = $request->id_cliente;
+        $id_clase = $request->id_clase;
+
+        // 1. Obtener la clase y su aforo máximo
+        $clase = DB::table('clases')->where('id_clase', $id_clase)->first();
+        if (!$clase) return response()->json(['message' => 'Clase no encontrada'], 404);
+
+        // 2. Calcular fecha de la clase (mismo código que ya tienes)
+        $dias = ['lunes'=>1,'martes'=>2,'miercoles'=>3,'jueves'=>4,'viernes'=>5,'sabado'=>6,'domingo'=>0];
+        $hoyNum = date('w');
+        $objetivo = $dias[strtolower($clase->dia)] ?? $hoyNum;
+        $dif = $objetivo - $hoyNum;
+        if ($dif < 0) $dif += 7;
+        $fechaClase = date('Y-m-d', strtotime("+$dif days"));
+
+        // 3. COMPPROBACIÓN 1: ¿Ya está inscrito?
+        $yaInscrito = DB::table('inscripciones')
+            ->where('id_cliente', $id_cliente)
+            ->where('id_clase', $id_clase)
+            ->where('fecha_clase', $fechaClase)
+            ->where('status', '!=', 'cancelado')
+            ->exists();
+
+        if ($yaInscrito) {
+            return response()->json(['message' => 'Ya estás inscrito en esta clase.'], 400);
+        }
+
+        // 4. COMPROBACIÓN 2: ¿Aforo completo?
+        $inscritosActuales = DB::table('inscripciones')
+            ->where('id_clase', $id_clase)
+            ->where('fecha_clase', $fechaClase)
+            ->where('status', '!=', 'cancelado')
+            ->count();
+
+        if ($inscritosActuales >= $clase->aforo) {
+            return response()->json(['message' => 'Lo sentimos, la clase está llena.'], 400);
+        }
+
+        // 5. Todo OK -> Insertar
+        DB::table('inscripciones')->insert([
+            'id_cliente' => $id_cliente,
+            'id_clase' => $id_clase,
+            'fecha_clase' => $fechaClase,
+            'dia_reserva' => date('Y-m-d H:i:s'),
+            'status' => 'confirmado'
+        ]);
+
+        return response()->json(['message' => 'Reserva confirmada'], 201);
+
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
+    }
+}
 }
