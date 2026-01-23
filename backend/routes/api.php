@@ -24,7 +24,7 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // Actividades
 Route::get('/actividades', [ActividadController::class, 'index']);
-Route::get('/actividades/{id}/horarios', [App\Http\Controllers\ActividadController::class, 'getHorarios']);
+Route::get('/actividades/{id}/horarios', [ActividadController::class, 'getHorariosPorActividad']);
 
 // Notificaciones
 Route::get('/notificaciones/unread/{id}', [NotificationController::class, 'getUnread']); 

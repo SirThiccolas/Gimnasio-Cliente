@@ -87,11 +87,18 @@ public function store(Request $request)
         $id_cliente = $request->id_cliente;
         $id_clase = $request->id_clase;
 
-        // 1. Obtener la clase y su aforo máximo
-        $clase = DB::table('clases')->where('id_clase', $id_clase)->first();
-        if (!$clase) return response()->json(['message' => 'Clase no encontrada'], 404);
+        // --- CORRECCIÓN AQUÍ: Unimos con actividades para obtener el aforo ---
+        $clase = DB::table('clases')
+            ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
+            ->where('clases.id_clase', $id_clase)
+            ->select('clases.*', 'actividades.aforo') // Traemos el aforo de la actividad
+            ->first();
 
-        // 2. Calcular fecha de la clase (mismo código que ya tienes)
+        if (!$clase) {
+            return response()->json(['message' => 'Clase no encontrada'], 404);
+        }
+
+        // 2. Calcular fecha de la clase (Lógica que ya tienes)
         $dias = ['lunes'=>1,'martes'=>2,'miercoles'=>3,'jueves'=>4,'viernes'=>5,'sabado'=>6,'domingo'=>0];
         $hoyNum = date('w');
         $objetivo = $dias[strtolower($clase->dia)] ?? $hoyNum;
@@ -99,7 +106,7 @@ public function store(Request $request)
         if ($dif < 0) $dif += 7;
         $fechaClase = date('Y-m-d', strtotime("+$dif days"));
 
-        // 3. COMPPROBACIÓN 1: ¿Ya está inscrito?
+        // 3. Comprobar si ya está inscrito
         $yaInscrito = DB::table('inscripciones')
             ->where('id_cliente', $id_cliente)
             ->where('id_clase', $id_clase)
@@ -111,7 +118,7 @@ public function store(Request $request)
             return response()->json(['message' => 'Ya estás inscrito en esta clase.'], 400);
         }
 
-        // 4. COMPROBACIÓN 2: ¿Aforo completo?
+        // 4. Comprobar aforo (Ahora $clase->aforo ya existe gracias al JOIN)
         $inscritosActuales = DB::table('inscripciones')
             ->where('id_clase', $id_clase)
             ->where('fecha_clase', $fechaClase)
@@ -122,7 +129,7 @@ public function store(Request $request)
             return response()->json(['message' => 'Lo sentimos, la clase está llena.'], 400);
         }
 
-        // 5. Todo OK -> Insertar
+        // 5. Insertar
         DB::table('inscripciones')->insert([
             'id_cliente' => $id_cliente,
             'id_clase' => $id_clase,
