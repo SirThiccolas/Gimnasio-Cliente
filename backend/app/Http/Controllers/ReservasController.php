@@ -81,6 +81,22 @@ class ReservasController extends Controller
         return response()->json(['status' => $status]);
     }
 
+    public function getVolverAReservar($id_cliente) {
+    // Para probar si funciona, puedes comentar temporalmente la línea del 'where' 
+    // y ver si se muestra algo.
+    $reservas = DB::table('inscripciones')
+        ->join('clases', 'inscripciones.id_clase', '=', 'clases.id_clase')
+        ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
+        ->where('inscripciones.id_cliente', $id_cliente)
+        ->where('inscripciones.fecha_clase', '>=', now()->subDays(30)) // Últimos 30 días
+        ->select('actividades.id_actividad', 'actividades.nombre', 'actividades.descripcion', 'clases.hora_inicio')
+        ->distinct()
+        ->get();
+
+    return response()->json($reservas);
+}
+
+
 public function store(Request $request)
 {
     try {

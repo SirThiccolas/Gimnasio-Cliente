@@ -6,7 +6,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ClaseController;
-use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\ReservasController;
 
 Route::get('/ping', function (Request $request) {
@@ -47,3 +46,4 @@ Route::get('/reservas/{id_cliente}', [ReservasController::class, 'getReservas'])
 Route::get('/status-inscripcion/{id_cliente}/{id_clase}', [ReservasController::class, 'checkStatus']);
 Route::post('/validar-acceso', [ReservasController::class, 'validarAcceso']);
 Route::post('/reservar', [ReservasController::class, 'store']);
+Route::get('/volver-reservar/{id_cliente}', [ReservasController::class, 'getVolverAReservar']);
