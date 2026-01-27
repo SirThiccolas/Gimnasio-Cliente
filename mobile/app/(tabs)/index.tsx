@@ -133,6 +133,26 @@ export default function HomeScreen() {
     }
   };
 
+  const getEstadoClase = (horaInicioStr: string, duracionMinutos: number) => {
+    const ahora = new Date();
+    
+    // Parseamos la hora de inicio (formato HH:mm:ss)
+    const [horas, minutos] = horaInicioStr.split(':').map(Number);
+    
+    const fechaInicio = new Date();
+    fechaInicio.setHours(horas, minutos, 0);
+
+    const fechaFin = new Date(fechaInicio.getTime() + duracionMinutos * 60000);
+
+    if (ahora > fechaFin) {
+      return { label: 'Finalizada', color: '#7f8c8d', active: false };
+    } else if (ahora >= fechaInicio && ahora <= fechaFin) {
+      return { label: 'En curso', color: '#2ecc71', active: true };
+    }
+    
+    return null; // Aún no empieza
+  };
+
   // Abre el popup de confirmación desde el modal de horarios
   const abrirConfirmacion = (horario: Horario) => {
     setClaseParaConfirmar({
@@ -237,17 +257,38 @@ export default function HomeScreen() {
         {/* HORARIO GENERAL */}
         <View style={styles.rowTitle}>
             <Text style={styles.sectionTitle}>Horario de Hoy</Text>
-            <TouchableOpacity onPress={() => router.push("/(tabs)/horario")}><Text style={styles.link}>Ver todo</Text></TouchableOpacity>
-        </View>
-        <View style={[styles.listContainer, { marginBottom: 30 }]}>
-          {horarioHoy.map((item: any, i) => (
-            <TouchableOpacity key={i} style={styles.horarioRowSimple} onPress={() => router.push("/(tabs)/clases")}>
-              <Clock color="#7f8c8d" size={18} />
-              <Text style={styles.horarioTimeSimple}>{item.hora.substring(0,5)}</Text>
-              <Text style={styles.horarioNameSimple}>{item.nombre_actividad}</Text>
-              <ChevronRight color="#ff7e5f" size={20} />
+            <TouchableOpacity onPress={() => router.push("/(tabs)/horario")}>
+              <Text style={styles.link}>Ver todo</Text>
             </TouchableOpacity>
-          ))}
+        </View>
+
+        <View style={[styles.listContainer, { marginBottom: 30 }]}>
+          {horarioHoy.map((item: any, i) => {
+            // Calculamos el estado para este item
+            const estado = getEstadoClase(item.hora, item.duracion);
+
+            return (
+              <TouchableOpacity 
+                key={i} 
+                style={[styles.horarioRowSimple, estado?.label === 'Finalizada' && { opacity: 0.5 }]} 
+                onPress={() => router.push("/(tabs)/horario")}
+              >
+                <Clock color={estado ? estado.color : "#7f8c8d"} size={18} />
+                <Text style={styles.horarioTimeSimple}>{item.hora.substring(0,5)}</Text>
+                
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.horarioNameSimple}>{item.nombre_actividad}</Text>
+                  {estado && (
+                    <Text style={[styles.statusTag, { color: estado.color }]}>
+                      {estado.label}
+                    </Text>
+                  )}
+                </View>
+
+                <ChevronRight color="#ff7e5f" size={20} />
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -365,5 +406,11 @@ const styles = StyleSheet.create({
   horarioFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   profeText: { color: '#7f8c8d', fontSize: 13 },
   cancelLabel: { color: '#e74c3c', fontWeight: 'bold' },
-  fullLabel: { color: '#f1c40f', fontWeight: 'bold' }
+  fullLabel: { color: '#f1c40f', fontWeight: 'bold' },
+  statusTag: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
 });

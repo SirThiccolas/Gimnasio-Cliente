@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, ActivityIndicator, 
-  TouchableOpacity, Alert 
+  TouchableOpacity, Modal, Pressable 
 } from 'react-native';
 import { Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Clock, QrCode, AlertCircle } from 'lucide-react-native';
+import { Clock, QrCode, AlertCircle, Trash2, X } from 'lucide-react-native';
 
 import CustomHeader from '../../components/CustomHeader';
 import SideMenu from '../../components/SideMenu';
@@ -26,8 +26,13 @@ export default function ReservasScreen() {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<'todas' | 'hoy' | 'usadas'>('todas');
+  const [notifs, setNotifs] = useState([]);
   
+  // Estados para Modales
   const [selectedQr, setSelectedQr] = useState<any>(null);
+  const [modalBorradoVisible, setModalBorradoVisible] = useState(false);
+  const [idParaBorrar, setIdParaBorrar] = useState<number | null>(null);
+
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -37,9 +42,83 @@ export default function ReservasScreen() {
     loadInitialData();
   }, []);
 
+  const loadInitialData = async () => {
+    try {
+      const id = await AsyncStorage.getItem('clientId');
+      const nombre = await AsyncStorage.getItem('clientName');
+      const apellido = await AsyncStorage.getItem('clientLastname');
+      setClientData({ nombre: nombre || '', id: id || '', apellido: apellido || '' });
+      if (id) {
+        await fetchReservas(id);
+        fetchNotifs(id);
+      }
+    } catch (e) { 
+      console.error(e); 
+    } finally { 
+      setLoading(false); 
+    }
+  };
+  const fetchNotifs = async (id: string) => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/notificaciones/unread/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotifs(data);
+      }
+    } catch (e) { 
+      console.error("Error cargando notificaciones en Reservas:", e); 
+    }
+  };
+  const fetchReservas = async (id: string) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/reservas/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setReservas(data);
+      }
+    } catch (error) { 
+      console.error("Error al obtener reservas:", error); 
+    }
+  };
+
+  const handleCancelarReserva = (idClase: number) => {
+    setIdParaBorrar(idClase);
+    setModalBorradoVisible(true);
+  };
+
+  const ejecutarBorrado = async () => {
+    if (!idParaBorrar || !clientData.id) return;
+    
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/reservas/${idParaBorrar}?id_cliente=${clientData.id}`, 
+        {
+          method: 'DELETE',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.ok) {
+        setToastMsg("Reserva cancelada");
+        setShowToast(true);
+        fetchReservas(clientData.id);
+      } else {
+        const errorData = await response.json();
+        console.error("Error del servidor:", errorData.message);
+      }
+    } catch (error) {
+      console.error("Error de red:", error);
+    } finally {
+      setModalBorradoVisible(false);
+      setIdParaBorrar(null);
+    }
+  };
+
   const handleScanSuccess = async (scannedData: string) => {
     try {
-      console.log("Recibido en el padre:", scannedData);
       let limpio = scannedData.replace(/´/g, '"').replace(/ç/g, '}').replace(/¨/g, '{');
       const payload = JSON.parse(limpio);
       
@@ -58,25 +137,8 @@ export default function ReservasScreen() {
         }, 1500);
       }
     } catch (e) {
-      console.error("Error en JSON.parse:", scannedData);
+      console.error("Error en escaneo:", e);
     }
-  };
-
-  const loadInitialData = async () => {
-    try {
-      const id = await AsyncStorage.getItem('clientId');
-      const nombre = await AsyncStorage.getItem('clientName');
-      const apellido = await AsyncStorage.getItem('clientLastname');
-      setClientData({ nombre: nombre || '', id: id || '', apellido: apellido || '' });
-      if (id) await fetchReservas(id);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-
-  const fetchReservas = async (id: string) => {
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/api/reservas/${id}`);
-      if (response.ok) setReservas(await response.json());
-    } catch (error) { console.error(error); }
   };
 
   const reservasFiltradas = reservas.filter((r) => {
@@ -89,8 +151,8 @@ export default function ReservasScreen() {
     const esHoy = item.fecha_clase === hoyStr;
     const esUsado = item.status === 'usado';
     const esCancelado = item.status === 'cancelado';
+    const esConfirmado = item.status === 'confirmado';
 
-    // Definir color del badge según status
     const badgeColor = esUsado ? '#3498db' : esCancelado ? '#e74c3c' : '#2ecc71';
 
     return (
@@ -101,8 +163,18 @@ export default function ReservasScreen() {
       ]}>
         <View style={styles.cardHeader}>
           <Text style={styles.actividadName}>{item.nombre_actividad}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: badgeColor }]}>
-            <Text style={styles.statusText}>{item.status}</Text>
+          <View style={styles.headerRight}>
+            {esConfirmado && (
+              <TouchableOpacity 
+                onPress={() => handleCancelarReserva(item.id_clase)}
+                style={styles.deleteBtn}
+              >
+                <Trash2 size={18} color="#e74c3c" />
+              </TouchableOpacity>
+            )}
+            <View style={[styles.statusBadge, { backgroundColor: badgeColor }]}>
+              <Text style={styles.statusText}>{item.status}</Text>
+            </View>
           </View>
         </View>
 
@@ -117,8 +189,7 @@ export default function ReservasScreen() {
           </Text>
         </View>
 
-        {/* Solo mostrar botón QR si es hoy y está confirmado */}
-        {esHoy && item.status === 'confirmado' && (
+        {esHoy && esConfirmado && (
           <TouchableOpacity 
             style={styles.qrButton} 
             onPress={() => setSelectedQr({
@@ -139,9 +210,15 @@ export default function ReservasScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <CustomHeader title="MIS RESERVAS" onOpenMenu={() => setIsMenuOpen(true)} clientId={clientData.id} />
-      <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} clientData={clientData as any} />
-
+      <CustomHeader 
+        title="MIS RESERVAS" 
+        onOpenMenu={() => setIsMenuOpen(true)} 
+        clientId={clientData.id} 
+        unreadCount={notifs.length}
+        notificaciones={notifs}
+        onRefreshNotifs={() => fetchNotifs(clientData.id)}
+      />
+    <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} clientData={clientData as any} />
       <View style={styles.tabContainer}>
         {(['todas', 'hoy', 'usadas'] as const).map((f) => (
           <TouchableOpacity key={f} onPress={() => setFiltro(f)} style={[styles.tabButton, filtro === f && styles.tabActive]}>
@@ -155,12 +232,49 @@ export default function ReservasScreen() {
       ) : (
         <FlatList
           data={reservasFiltradas}
-          keyExtractor={(_, index) => index.toString()}
+          keyExtractor={(item, index) => item.id_clase?.toString() || index.toString()}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 20 }}
           ListEmptyComponent={<Text style={styles.emptyText}>No hay reservas para mostrar.</Text>}
         />
       )}
+
+      {/* MODAL DE CONFIRMACIÓN DE CANCELACIÓN */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalBorradoVisible}
+        onRequestClose={() => setModalBorradoVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <AlertCircle size={40} color="#e74c3c" />
+            </View>
+            
+            <Text style={styles.modalTitle}>¿Cancelar Reserva?</Text>
+            <Text style={styles.modalText}>
+              ¿Estás seguro de que quieres cancelar esta clase? Esta acción no se puede deshacer.
+            </Text>
+
+            <View style={styles.modalButtonGroup}>
+              <TouchableOpacity 
+                style={styles.btnSecundario} 
+                onPress={() => setModalBorradoVisible(false)}
+              >
+                <Text style={styles.btnSecundarioText}>VOLVER</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.btnPrimario} 
+                onPress={ejecutarBorrado}
+              >
+                <Text style={styles.btnPrimarioText}>SÍ, CANCELAR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <QrAcceso 
         visible={!!selectedQr} 
@@ -182,7 +296,6 @@ const styles = StyleSheet.create({
   tabText: { color: '#7f8c8d', fontSize: 11, fontWeight: 'bold' },
   tabTextActive: { color: '#ff7e5f' },
   
-  // Estilos de Tarjetas
   card: { 
     backgroundColor: '#2f3640', 
     borderRadius: 20, 
@@ -191,23 +304,106 @@ const styles = StyleSheet.create({
     borderLeftWidth: 5, 
     borderLeftColor: '#2ecc71'
   },
-  cardUsado: { 
-    opacity: 0.6, 
-    borderLeftColor: '#3498db' 
-  },
+  cardUsado: { opacity: 0.6, borderLeftColor: '#3498db' },
   cardCancelado: { 
     opacity: 0.8, 
     borderLeftColor: '#e74c3c',
     backgroundColor: '#353b48'
   },
 
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  actividadName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  cardHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginBottom: 10, 
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  headerRight: { 
+    flexDirection: 'row', 
+    alignItems: 'center',
+  },
+  deleteBtn: { 
+    marginRight: 12, 
+    padding: 10, 
+    backgroundColor: 'rgba(231, 76, 60, 0.1)', 
+    borderRadius: 8,
+  },
+  actividadName: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusText: { color: '#fff', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   infoText: { color: '#bdc3c7', marginLeft: 8 },
   qrButton: { backgroundColor: '#ff7e5f', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, borderRadius: 10 },
   qrButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
-  emptyText: { color: '#7f8c8d', textAlign: 'center', marginTop: 40 }
+  emptyText: { color: '#7f8c8d', textAlign: 'center', marginTop: 40 },
+
+  // --- ESTILOS DEL MODAL ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#2f3640',
+    borderRadius: 25,
+    padding: 25,
+    width: '85%',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalIconContainer: {
+    marginBottom: 15,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    padding: 15,
+    borderRadius: 50,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  modalText: {
+    color: '#bdc3c7',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 20,
+  },
+  modalButtonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+  },
+  btnSecundario: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#57606f',
+    alignItems: 'center',
+  },
+  btnSecundarioText: {
+    color: '#bdc3c7',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  btnPrimario: {
+    flex: 1,
+    backgroundColor: '#e74c3c',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  btnPrimarioText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
 });

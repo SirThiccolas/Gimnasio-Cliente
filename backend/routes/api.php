@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\NotificationController;
@@ -47,3 +48,4 @@ Route::get('/status-inscripcion/{id_cliente}/{id_clase}', [ReservasController::c
 Route::post('/validar-acceso', [ReservasController::class, 'validarAcceso']);
 Route::post('/reservar', [ReservasController::class, 'store']);
 Route::get('/volver-reservar/{id_cliente}', [ReservasController::class, 'getVolverAReservar']);
+Route::delete('/reservas/{id}', [ReservasController::class, 'destroy']);

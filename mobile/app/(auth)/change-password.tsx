@@ -15,7 +15,7 @@ export default function ChangePasswordScreen() {
   const [confirmPass, setConfirmPass] = useState('');
   
   // Estado del mensaje de feedback
-  const [feedback, setFeedback] = useState({ msg: '', type: '' }); // type: 'error' | 'success'
+  const [feedback, setFeedback] = useState({ msg: '', type: '' });
 
   useEffect(() => {
     const getUserId = async () => {
@@ -26,7 +26,6 @@ export default function ChangePasswordScreen() {
   }, []);
 
   const handleUpdate = async () => {
-    // Validaciones previas en cliente
     if (!currentPass || !newPass || !confirmPass) {
       setFeedback({ msg: 'Por favor, rellena todos los campos.', type: 'error' });
       return;
@@ -55,11 +54,9 @@ export default function ChangePasswordScreen() {
 
       if (response.ok) {
         setFeedback({ msg: '¡Éxito! Contraseña actualizada.', type: 'success' });
-        // Limpiar campos
         setCurrentPass('');
         setNewPass('');
         setConfirmPass('');
-        // Opcional: volver atrás después de 2 segundos
         setTimeout(() => router.back(), 2000);
       } else {
         setFeedback({ msg: data.message || 'Error al actualizar.', type: 'error' });
@@ -143,8 +140,6 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#f1f2f6', padding: 15, borderRadius: 12, marginBottom: 15, fontSize: 16 },
   btn: { backgroundColor: '#ff7e5f', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  
-  // Estilos de los mensajes en pantalla
   msgBox: { padding: 12, borderRadius: 10, marginBottom: 15, alignItems: 'center' },
   errorBox: { backgroundColor: '#ffebee' },
   successBox: { backgroundColor: '#e8f5e9' },

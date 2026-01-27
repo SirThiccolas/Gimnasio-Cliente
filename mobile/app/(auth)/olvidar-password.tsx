@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { Lock, Mail, Key, ChevronLeft, User, CheckCircle2 } from 'lucide-react-native';
 
 export default function OlvidarPassword() {
-  const [step, setStep] = useState(1); // 1: DNI/Email, 2: Código, 3: Nueva Clave
+  const [step, setStep] = useState(1);
   const [dni, setDni] = useState('');
   const [emailEnvio, setEmailEnvio] = useState('');
   const [code, setCode] = useState('');
@@ -18,7 +18,6 @@ export default function OlvidarPassword() {
 
   const API_URL = "http://127.0.0.1:8000/api";
 
-  // PASO 1: Enviar DNI y Email al servidor
   const handleSendCode = async () => {
     if (!dni || !emailEnvio) {
       return Alert.alert("Error", "Por favor, introduce tu DNI y un email de contacto.");
@@ -50,8 +49,6 @@ export default function OlvidarPassword() {
     }
   };
 
-  // PASO 2: Verificar código asociado al DNI
-  // PASO 2: Verificar código asociado al DNI
   const handleVerifyCode = async () => {
     if (code.length !== 6) return Alert.alert("Error", "El código debe ser de 6 dígitos.");
 
@@ -83,7 +80,6 @@ export default function OlvidarPassword() {
     }
   };
 
-  // PASO 3: Actualizar password usando el DNI como referencia
   const handleUpdatePassword = async () => {
     if (newPassword.length < 4) {
       return Alert.alert("Error", "La contraseña es muy corta.");
@@ -108,13 +104,11 @@ export default function OlvidarPassword() {
         })
       });
 
-      // Si la respuesta no es JSON, esto fallará y saltará al catch
       const data = await response.json();
       console.log("Respuesta servidor:", data);
 
       setLoading(false);
 
-      // Si el código llega aquí, informamos y redirigimos SIEMPRE que no sea un error 400/500
       if (response.ok) {
         Alert.alert(
           "¡Éxito!", 
@@ -126,7 +120,6 @@ export default function OlvidarPassword() {
           { cancelable: false }
         );
         
-        // Redirección de seguridad por si el Alert falla en algún dispositivo
         setTimeout(() => {
           router.replace('/(auth)');
         }, 3000);
@@ -137,8 +130,6 @@ export default function OlvidarPassword() {
     } catch (error) {
       setLoading(false);
       console.error("Error crítico:", error);
-      // En trabajos de clase, a veces el servidor da error pero SI cambia la clave
-      // Por si acaso, informamos al usuario.
       Alert.alert("Aviso", "Revisa si puedes entrar con la nueva clave.");
     }
   };

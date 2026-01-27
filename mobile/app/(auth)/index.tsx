@@ -12,7 +12,6 @@ import { ImageBackground } from 'expo-image';
 import { useRouter, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// --- TUS ESTILOS ORIGINALES ---
 const GRADIENT_START = '#ff7e5f';
 const TEXT_DARK = '#2c3e50';
 const INPUT_BACKGROUND = '#f8f9fa';
@@ -124,7 +123,6 @@ export default function LoginScreen() {
     Keyboard.dismiss();
 
     try {
-      // Recuerda usar tu IP real si pruebas en móvil
       const response = await fetch("http://127.0.0.1:8000/api/login", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -134,7 +132,6 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (response.ok) {
-        // Guardamos los datos reales que vienen de tu BD
         await AsyncStorage.setItem('clientId', String(data.user.id_cliente));
         await AsyncStorage.setItem('clientName', data.user.nombre);
         await AsyncStorage.setItem('clientLastname', data.user.apellido);
