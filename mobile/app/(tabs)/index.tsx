@@ -7,7 +7,7 @@ import { useRouter, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   Dumbbell, Calendar, Clock, ChevronRight, 
-  X as CloseIcon, Timer 
+  X as CloseIcon, Timer, QrCode
 } from 'lucide-react-native';
 
 // Componentes
@@ -15,6 +15,7 @@ import CustomHeader from '../../components/CustomHeader';
 import SideMenu from '../../components/SideMenu';
 import ConfirmarReservaModal from '@/components/ConfirmarReserva';
 import ToastAcceso from '../../components/ToastAcceso';
+import QrAcceso from '../../components/QrAcceso';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.7; 
@@ -49,6 +50,7 @@ export default function HomeScreen() {
   const [horarioHoy, setHorarioHoy] = useState([]); 
   const [notifs, setNotifs] = useState([]);
   const [volverAReservar, setVolverAReservar] = useState<Actividad[]>([]);
+  const [selectedQr, setSelectedQr] = useState<any>(null);
 
   // Estados para Horarios
   const [selectedAct, setSelectedAct] = useState<Actividad | null>(null);
@@ -88,6 +90,30 @@ export default function HomeScreen() {
       
       if (id) fetchNotifs(id);
     } catch (e) { console.error(e); } finally { setLoading(false); }
+  };
+
+  const handleScanSuccess = async (scannedData: string) => {
+    try {
+      let limpio = scannedData.replace(/´/g, '"').replace(/ç/g, '}').replace(/¨/g, '{');
+      const payload = JSON.parse(limpio);
+      
+      const response = await fetch(`http://127.0.0.1:8000/api/validar-acceso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        setToastMsg(`¡Acceso Correcto!`);
+        setShowToast(true);
+        setTimeout(() => {
+          setSelectedQr(null);
+          fetchInitialData();
+        }, 1500);
+      }
+    } catch (e) {
+      console.error("Error en escaneo:", e);
+    }
   };
 
   const fetchNotifs = async (id: string) => {
@@ -229,7 +255,7 @@ export default function HomeScreen() {
           snapToInterval={CARD_WIDTH + SPACING}
           decelerationRate="fast"
           renderItem={({ item }) => (
-            <View style={styles.actCard}>
+            <View style={styles.rebookCard}>
               <Dumbbell color="#ff7e5f" size={24} />
               <View>
                 <Text style={styles.actName}>{item.nombre}</Text>
@@ -245,13 +271,63 @@ export default function HomeScreen() {
         {/* TUS CLASES DE HOY */}
         <Text style={styles.sectionTitle}>Tus Clases de Hoy</Text>
         <View style={styles.listContainer}>
-          {misClases.length > 0 ? misClases.map((clase: any, i) => (
-            <View key={i} style={styles.myClassItem}>
-                <View style={styles.timeBadge}><Text style={styles.timeText}>{clase.hora.substring(0,5)}</Text></View>
-                <Text style={styles.myClassName}>{clase.nombre_actividad}</Text>
-                <Calendar color="#ff7e5f" size={18} />
-            </View>
-          )) : <Text style={styles.emptyText}>No tienes reservas hoy.</Text>}
+          {(() => {
+            const clasesVisibles = misClases.filter((clase: any) => {
+              const estado = getEstadoClase(clase.hora, clase.duracion);
+              return estado?.label !== 'Finalizada'; 
+            });
+
+            if (clasesVisibles.length === 0) {
+              return (
+                <View style={styles.emptyContainer}>
+                  <Calendar color="#7f8c8d" size={40} style={{ marginBottom: 10 }} />
+                  <Text style={styles.emptyText}>No tienes reservas para lo que queda de hoy.</Text>
+                </View>
+              );
+            }
+
+            return clasesVisibles.map((clase: any, i) => {
+              const esUsado = clase.status === 'usado';
+
+              return (
+                <TouchableOpacity 
+                  key={i} 
+                  style={[
+                    styles.myClassItem, 
+                    esUsado && { borderColor: '#2ecc71', borderWidth: 1, opacity: 0.9 }
+                  ]}
+                  disabled={esUsado}
+                  onPress={() => setSelectedQr({
+                    id_clase: clase.id_clase,
+                    id_cliente: clientData.id,
+                    actividad: clase.nombre_actividad,
+                    hora: clase.hora
+                  })}
+                >
+                  <View style={[styles.timeBadge, esUsado && { backgroundColor: '#2ecc71' }]}>
+                    <Text style={styles.timeText}>{clase.hora.substring(0,5)}</Text>
+                  </View>
+                  
+                  <View style={{ flex: 1, marginLeft: 15 }}>
+                    <Text style={styles.myClassName}>{clase.nombre_actividad}</Text>
+                    {esUsado && (
+                      <Text style={{ color: '#2ecc71', fontSize: 12, fontWeight: 'bold', marginTop: 2 }}>
+                        ✓ EN HORA
+                      </Text>
+                    )}
+                  </View>
+
+                  {esUsado ? (
+                    <View style={styles.checkIconBadge}>
+                      <Clock color="#2ecc71" size={20} />
+                    </View>
+                  ) : (
+                    <QrCode color="#ff7e5f" size={22} />
+                  )}
+                </TouchableOpacity>
+              );
+            });
+          })()}
         </View>
 
         {/* HORARIO GENERAL */}
@@ -353,6 +429,13 @@ export default function HomeScreen() {
         onConfirm={ejecutarReserva} 
       />
 
+      <QrAcceso 
+        visible={!!selectedQr} 
+        onClose={() => setSelectedQr(null)} 
+        data={selectedQr}
+        onScanSuccess={handleScanSuccess} 
+      />
+
       <ToastAcceso visible={showToast} message={toastMsg} onHide={() => setShowToast(false)} />
     </View>
   );
@@ -380,7 +463,7 @@ const styles = StyleSheet.create({
   myClassItem: { backgroundColor: '#2f3640', padding: 15, borderRadius: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   timeBadge: { backgroundColor: '#ff7e5f', padding: 8, borderRadius: 10, width: 55, alignItems: 'center' },
   timeText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
-  myClassName: { flex: 1, marginLeft: 15, fontSize: 16, fontWeight: 'bold', color: '#fff' },
+  myClassName: { flex: 1, fontSize: 16, fontWeight: 'bold', color: '#fff' },
   horarioRowSimple: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2f3640', padding: 18, borderRadius: 15, marginBottom: 8 },
   horarioTimeSimple: { marginLeft: 12, fontWeight: 'bold', width: 55, color: '#fff' },
   horarioNameSimple: { flex: 1, color: '#bdc3c7' },
@@ -413,4 +496,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 2,
   },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+    backgroundColor: '#2f3640',
+    borderRadius: 20,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: '#7f8c8d',
+  },
+  checkIconBadge: {
+    backgroundColor: 'rgba(46, 204, 113, 0.15)',
+    padding: 8,
+    borderRadius: 12
+  }
 });

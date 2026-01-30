@@ -8,31 +8,33 @@ use Carbon\Carbon;
 
 class ClaseController extends Controller
 {
-    public function getMisClases($id_cliente)
-    {
-        try {
-            $hoy = Carbon::now()->format('Y-m-d');
+public function getMisClases($id_cliente)
+{
+    try {
+        $hoy = Carbon::now()->format('Y-m-d');
 
-            $misClases = DB::table('inscripciones')
-                ->join('clases', 'inscripciones.id_clase', '=', 'clases.id_clase')
-                ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
-                ->where('inscripciones.id_cliente', $id_cliente)
-                ->where('inscripciones.fecha_clase', '=', $hoy)
-                ->where('inscripciones.status', '!=', 'cancelado')
-                ->select(
-                    'clases.id_clase',
-                    'clases.hora_inicio as hora',
-                    'actividades.nombre as nombre_actividad',
-                    'inscripciones.status'
-                )
-                ->orderBy('clases.hora_inicio', 'asc')
-                ->get();
+        $misClases = DB::table('inscripciones')
+            ->join('clases', 'inscripciones.id_clase', '=', 'clases.id_clase')
+            ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
+            ->where('inscripciones.id_cliente', $id_cliente)
+            ->where('inscripciones.fecha_clase', '=', $hoy)
+            // Quitamos el filtro de solo "confirmado" para traer también "usado"
+            ->whereIn('inscripciones.status', ['confirmado', 'usado']) 
+            ->select(
+                'clases.id_clase',
+                'clases.hora_inicio as hora',
+                'actividades.nombre as nombre_actividad',
+                'actividades.duracion', // Añadimos duración
+                'inscripciones.status'
+            )
+            ->orderBy('clases.hora_inicio', 'asc')
+            ->get();
 
-            return response()->json($misClases);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        return response()->json($misClases);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
 
     public function getHorarioHoy()
     {
@@ -105,36 +107,5 @@ class ClaseController extends Controller
         $resultado = $query->orderBy('clases.hora_inicio', 'asc')->get();
         
         return response()->json($resultado);
-    }
-
-    public function volverAReservar($id_cliente)
-    {
-        try {
-            $clasesPasadas = DB::table('inscripciones')
-                ->join('clases', 'inscripciones.id_clase', '=', 'clases.id_clase')
-                ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
-                ->join('instructores', 'clases.id_instructor', '=', 'instructores.id_instructor')
-                ->where('inscripciones.id_cliente', $id_cliente)
-                ->where('inscripciones.status', '=', 'usado')
-                ->select(
-                    'clases.id_clase',
-                    'clases.dia',
-                    'clases.hora_inicio',
-                    'clases.aforo_maximo',
-                    'actividades.nombre as nombre_actividad',
-                    'actividades.duracion',
-                    'instructores.nombre as nombre_instructor',
-                    DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND status != 'cancelado') as inscritos_count")
-                )
-                ->orderBy('inscripciones.id_inscripcion', 'desc')
-                ->get()
-                ->unique('nombre_actividad')
-                ->values()
-                ->take(5);
-
-            return response()->json($clasesPasadas);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
     }
 }
