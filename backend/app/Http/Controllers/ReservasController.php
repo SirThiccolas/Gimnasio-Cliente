@@ -20,7 +20,9 @@ class ReservasController extends Controller
             ->select(
                 'clases.id_clase',
                 'actividades.nombre as nombre_actividad',
+                'actividades.activo as actividad_activa', 
                 'clases.hora_inicio',
+                'clases.status as status_clase',
                 'inscripciones.status',
                 'inscripciones.fecha_clase',
                 'inscripciones.dia_reserva'
@@ -86,6 +88,7 @@ class ReservasController extends Controller
             ->where('inscripciones.id_cliente', $id_cliente)
             ->where('inscripciones.fecha_clase', '>=', now()->subDays(30))
             ->where('inscripciones.status', '=', 'usado')
+            ->where('actividades.activo', '1')
             ->select('actividades.id_actividad', 'actividades.nombre', 'actividades.descripcion', 'clases.hora_inicio')
             ->distinct()
             ->get();

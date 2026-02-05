@@ -56,6 +56,7 @@ export default function HomeScreen() {
   const [selectedAct, setSelectedAct] = useState<Actividad | null>(null);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   const [loadingHorarios, setLoadingHorarios] = useState(false);
+  const [errorReserva, setErrorReserva] = useState<{titulo: string, msj: string} | null>(null);
 
   // Estados para el Popup de Confirmación
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
@@ -436,7 +437,7 @@ export default function HomeScreen() {
         onScanSuccess={handleScanSuccess} 
       />
 
-      <ToastAcceso visible={showToast} message={toastMsg} onHide={() => setShowToast(false)} />
+      <ToastAcceso visible={showToast} message={toastMsg} onClose={() => setShowToast(false)} />
     </View>
   );
 }

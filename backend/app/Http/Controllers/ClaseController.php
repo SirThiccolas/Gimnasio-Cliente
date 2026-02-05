@@ -50,6 +50,7 @@ public function getMisClases($id_cliente)
                 ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
                 ->where('clases.dia', '=', $diaHoy)
                 ->where('clases.status', '=', 'confirmado')
+                ->where('actividades.activo', '1')
                 ->select(
                     'clases.id_clase',
                     'clases.hora_inicio as hora',
@@ -93,7 +94,8 @@ public function getMisClases($id_cliente)
                 DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND status != 'cancelado') as inscritos_count"),
                 DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND id_cliente = " . intval($clientId) . " AND status != 'cancelado') as ya_reservado")
             )
-            ->where('clases.status', 'confirmado');
+            ->where('clases.status', 'confirmado')
+            ->where('actividades.activo', '1');
 
         if ($diaFiltro && strtolower($diaFiltro) !== 'todos') {
             $query->whereRaw('LOWER(clases.dia) = ?', [strtolower($diaFiltro)]);

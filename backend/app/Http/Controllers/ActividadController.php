@@ -30,66 +30,68 @@ class ActividadController extends Controller
         return response()->json($actividad);
     }
 
-public function getHorariosPorActividad(Request $request, $id_actividad) 
-{
-    try {
-        $clientId = $request->query('client_id');
+    public function getHorariosPorActividad(Request $request, $id_actividad) 
+    {
+        try {
+            $clientId = $request->query('client_id');
 
-        $horarios = DB::table('clases')
-            ->join('instructores', 'clases.id_instructor', '=', 'instructores.id_instructor')
-            ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
-            ->where('clases.id_actividad', $id_actividad)
-            ->where('clases.status', 'confirmado')
-            ->select(
-                'clases.id_clase',
-                'clases.dia',
-                'clases.hora_inicio',
-                'clases.status',
-                'instructores.nombre as nombre_instructor',
-                'actividades.aforo as aforo_maximo',
-                DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND status != 'cancelado') as inscritos"),
-                DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND id_cliente = " . intval($clientId) . " AND status != 'cancelado') as ya_reservado")
-            )
-            ->orderByRaw("FIELD(clases.dia, 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo')")
-            ->orderBy('clases.hora_inicio', 'asc')
-            ->get();
+            $horarios = DB::table('clases')
+                ->join('instructores', 'clases.id_instructor', '=', 'instructores.id_instructor')
+                ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
+                ->where('clases.id_actividad', $id_actividad)
+                ->where('clases.status', 'confirmado')
+                ->where('actividades.activo', '1')
+                ->select(
+                    'clases.id_clase',
+                    'clases.dia',
+                    'clases.hora_inicio',
+                    'clases.status',
+                    'instructores.nombre as nombre_instructor',
+                    'actividades.aforo as aforo_maximo',
+                    DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND status != 'cancelado') as inscritos"),
+                    DB::raw("(SELECT COUNT(*) FROM inscripciones WHERE id_clase = clases.id_clase AND id_cliente = " . intval($clientId) . " AND status != 'cancelado') as ya_reservado")
+                )
+                ->orderByRaw("FIELD(clases.dia, 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo')")
+                ->orderBy('clases.hora_inicio', 'asc')
+                ->get();
 
-        return response()->json($horarios);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json($horarios);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
-}
 
-public function getHorarios($id)
-{
-    try {
-        $horarios = DB::table('clases')
-            ->join('instructores', 'clases.id_instructor', '=', 'instructores.id_instructor')
-            ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
-            ->leftJoin('inscripciones', function($join) {
-                $join->on('clases.id_clase', '=', 'inscripciones.id_clase')
-                     ->where('inscripciones.status', '=', 'confirmado');
-            })
-            ->where('clases.id_actividad', $id)
-            ->select(
-                'clases.id_clase',
-                'clases.dia',
-                'clases.hora_inicio',
-                'clases.status',
-                'instructores.nombre as nombre_instructor',
-                'actividades.aforo as aforo_maximo',
-                DB::raw('COUNT(inscripciones.id_cliente) as inscritos')
-            )
-            ->groupBy(
-                'clases.id_clase', 'clases.dia', 'clases.hora_inicio', 
-                'clases.status', 'instructores.nombre', 'actividades.aforo'
-            )
-            ->orderByRaw("FIELD(clases.dia, 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo')")
-            ->get();
+    public function getHorarios($id)
+    {
+        try {
+            $horarios = DB::table('clases')
+                ->join('instructores', 'clases.id_instructor', '=', 'instructores.id_instructor')
+                ->join('actividades', 'clases.id_actividad', '=', 'actividades.id_actividad')
+                ->leftJoin('inscripciones', function($join) {
+                    $join->on('clases.id_clase', '=', 'inscripciones.id_clase')
+                        ->where('inscripciones.status', '=', 'confirmado');
+                })
+                ->where('clases.id_actividad', $id)
+                ->where('actividades.activo', '1')
+                ->select(
+                    'clases.id_clase',
+                    'clases.dia',
+                    'clases.hora_inicio',
+                    'clases.status',
+                    'instructores.nombre as nombre_instructor',
+                    'actividades.aforo as aforo_maximo',
+                    DB::raw('COUNT(inscripciones.id_cliente) as inscritos')
+                )
+                ->groupBy(
+                    'clases.id_clase', 'clases.dia', 'clases.hora_inicio', 
+                    'clases.status', 'instructores.nombre', 'actividades.aforo'
+                )
+                ->orderByRaw("FIELD(clases.dia, 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo')")
+                ->get();
 
-        return response()->json($horarios);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
-    }
+            return response()->json($horarios);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
 }
 }

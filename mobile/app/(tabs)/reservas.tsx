@@ -15,6 +15,8 @@ import ToastAcceso from '../../components/ToastAcceso';
 interface Reserva {
   id_clase: number;
   nombre_actividad: string;
+  actividad_activa: number;
+  status_clase: string;
   hora_inicio: string;
   status: 'confirmado' | 'cancelado' | 'usado';
   fecha_clase: string;
@@ -147,24 +149,40 @@ export default function ReservasScreen() {
     return true;
   });
 
-  const renderItem = ({ item }: { item: Reserva }) => {
+const renderItem = ({ item }: { item: Reserva }) => {
     const esHoy = item.fecha_clase === hoyStr;
     const esUsado = item.status === 'usado';
-    const esCancelado = item.status === 'cancelado';
-    const esConfirmado = item.status === 'confirmado';
+    
+    // VALIDACIÓN TRIPLE
+    const actividadDesactivada = item.actividad_activa === 0;
+    const claseCancelada = item.status_clase === 'cancelado';
+    
+    // Si falla la actividad O la clase O la reserva misma
+    const esCanceladoTotal = item.status === 'cancelado' || actividadDesactivada || claseCancelada;
 
-    const badgeColor = esUsado ? '#3498db' : esCancelado ? '#e74c3c' : '#2ecc71';
+    // Solo mostrar como "OK" si todo está activo
+    const esConfirmadoReal = item.status === 'confirmado' && !actividadDesactivada && !claseCancelada;
+
+    const badgeColor = esCanceladoTotal ? '#e74c3c' : (esUsado ? '#3498db' : '#2ecc71');
+    
+    // Texto dinámico para que el usuario sepa POR QUÉ no hay clase
+    let textoStatus = item.status;
+    if (actividadDesactivada) textoStatus = 'ACTIVIDAD ANULADA';
+    else if (claseCancelada) textoStatus = 'CLASE CANCELADA';
 
     return (
       <View style={[
         styles.card, 
         esUsado && styles.cardUsado,
-        esCancelado && styles.cardCancelado
+        esCanceladoTotal && styles.cardCancelado
       ]}>
         <View style={styles.cardHeader}>
-          <Text style={styles.actividadName}>{item.nombre_actividad}</Text>
+          <Text style={[styles.actividadName, esCanceladoTotal && { color: '#e74c3c' }]}>
+            {item.nombre_actividad}
+          </Text>
+          
           <View style={styles.headerRight}>
-            {esConfirmado && (
+            {esConfirmadoReal && (
               <TouchableOpacity 
                 onPress={() => handleCancelarReserva(item.id_clase)}
                 style={styles.deleteBtn}
@@ -173,23 +191,20 @@ export default function ReservasScreen() {
               </TouchableOpacity>
             )}
             <View style={[styles.statusBadge, { backgroundColor: badgeColor }]}>
-              <Text style={styles.statusText}>{item.status}</Text>
+              <Text style={styles.statusText}>{textoStatus}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.infoRow}>
-          {esCancelado ? (
-            <AlertCircle size={16} color="#e74c3c" />
-          ) : (
-            <Clock size={16} color="#ff7e5f" />
-          )}
-          <Text style={[styles.infoText, esCancelado && { color: '#e74c3c' }]}>
+          <Clock size={16} color={esCanceladoTotal ? "#e74c3c" : "#ff7e5f"} />
+          <Text style={[styles.infoText, esCanceladoTotal && { color: '#e74c3c', textDecorationLine: 'line-through' }]}>
             {item.hora_inicio.substring(0, 5)} hs - {item.fecha_clase}
           </Text>
         </View>
 
-        {esHoy && esConfirmado && (
+        {/* Solo sale el QR si nada está cancelado */}
+        {esHoy && esConfirmadoReal && (
           <TouchableOpacity 
             style={styles.qrButton} 
             onPress={() => setSelectedQr({
@@ -205,7 +220,7 @@ export default function ReservasScreen() {
         )}
       </View>
     );
-  };
+};
 
   return (
     <View style={styles.container}>
@@ -306,11 +321,12 @@ const styles = StyleSheet.create({
   },
   cardUsado: { opacity: 0.6, borderLeftColor: '#3498db' },
   cardCancelado: { 
-    opacity: 0.8, 
+    opacity: 0.9, 
     borderLeftColor: '#e74c3c',
-    backgroundColor: '#353b48'
+    backgroundColor: '#3d2b2b',
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.3)'
   },
-
   cardHeader: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
